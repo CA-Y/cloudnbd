@@ -6,6 +6,7 @@
 #
 
 import sys
+import re
 import socket
 import struct
 import threading
@@ -93,6 +94,14 @@ class S3:
   def exists(self, key):
     with self.oplock:
       return True if self.bucket.get_key(key) else False
+  def list(self, prefix=''):
+    return self.bucket.list(prefix=prefix)
+  def delete(self, key):
+    from boto.s3.connection import Key
+    with self.oplock:
+      k = Key(self.bucket)
+      k.key = key
+      k.delete()
 
 class Block:
   def __init__(self, data, timestamp):
@@ -103,15 +112,15 @@ class Options:
   def __init__(self):
     self.forceclose = False
     self.debug = False
-    self.blocksize = 1024 * 100
+    self.blocksize = 1024 * 500
     self.totalsize = None
     self.bucket = None
     self.prefix = None
     self.accesskey = None
     self.secretkey = None
     self.action = None
-    self.cacheupper = 10
-    self.cachelower = 7
+    self.cacheupper = 20
+    self.cachelower = 15
     self.ip = None
     self.port = None
 
@@ -199,9 +208,8 @@ class S3BD:
                  self.opts.bucket)
 
   def open(self):
-    from boto.exception import S3ResponseError
     self.inits3()
-    meta = self.s3.get(self.opts.prefix)
+    meta = self.s3.get('%s/info' % self.opts.prefix)
     if meta is None:
       fatal("'%s' storage not found in '%s' bucket,"
             " use 's3bd.py create' to create one"
@@ -229,33 +237,40 @@ class S3BD:
 
   def create(self):
     self.inits3()
-    if self.s3.exists(self.opts.prefix):
+    if self.s3.exists('%s/info' % self.opts.prefix):
       fatal("'%s' storage in '%s' bucket is an existing storage"
             % (self.opts.prefix, self.opts.bucket))
     meta = '%d,%d' % (self.opts.totalsize, self.opts.blocksize)
-    self.s3.set(self.opts.prefix, meta)
+    self.s3.set('%s/info' % self.opts.prefix, meta)
 
   def resize(self):
     self.inits3()
-    meta = self.s3.get(self.opts.prefix)
+    meta = self.s3.get('%s/info' % self.opts.prefix)
     if meta is None:
       fatal("'%s' storage not found in '%s' bucket,"
             " use 's3bd.py create' to create one"
             % (self.opts.prefix, self.opts.bucket))
     size, bs = map(int, meta.split(','))
     meta = '%d,%d' % (self.opts.totalsize, bs)
-    self.s3.set(self.opts.prefix, meta)
+    self.s3.set('%s/info' % self.opts.prefix, meta)
 
   def gc(self):
     self.inits3()
-    meta = self.s3.get(self.opts.prefix)
+    meta = self.s3.get('%s/info' % self.opts.prefix)
     if meta is None:
       fatal("'%s' storage not found in '%s' bucket,"
             " use 's3bd.py create' to create one"
             % (self.opts.prefix, self.opts.bucket))
     size, bs = map(int, meta.split(','))
     maxid = size / bs
-    # TODO
+    delmark = []
+    for i in self.s3.list('%s/block-' % self.opts.prefix):
+      id = int(re.findall(r'-(\d+)$', i.key)[0])
+      if id > maxid:
+        delmark.append(id)
+    for i, b in enumerate(delmark):
+      self.s3.delete('%s/block-%d' % (self.opts.prefix, b))
+      print '%d of %d blocks deleted ...' % (i, len(delmark))
 
   def close(self):
     pass
@@ -301,7 +316,7 @@ class S3BD:
       if bid in self.cache:
         self.cache[bid].timestamp = time.time()
         return self.cache[bid].data
-    bd = self.s3.get("%s/%d" % (self.opts.prefix, bid))
+    bd = self.s3.get("%s/block-%d" % (self.opts.prefix, bid))
     if bd is None:
       bd = self.emptyblock
     else:
@@ -341,7 +356,7 @@ class S3BD:
         with self.cachelock:
           data = self.cache[bid].data
           self.dirty.remove(bid)
-        self.s3.set("%s/%d" % (self.opts.prefix, bid),
+        self.s3.set("%s/block-%d" % (self.opts.prefix, bid),
                     zlib.compress(data))
       time.sleep(0.1)
 
