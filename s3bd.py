@@ -80,28 +80,74 @@ class S3:
     self.bucket = self.conn.get_bucket(bucket)
     self.oplock = threading.RLock()
   def get(self, key):
-    key = self.bucket.get_key(key)
+    from boto.exception import S3PermissionsError
+    while True:
+      try:
+        key = self.bucket.get_key(key)
+        break
+      except S3PermissionsError, e:
+        fatal('permission error')
+      except:
+        pass
+      time.sleep(0.1)
     if key:
-      return key.get_contents_as_string()
+      while True:
+        try:
+          return key.get_contents_as_string()
+        except S3PermissionsError, e:
+          fatal('permission error')
+        except:
+          pass
+        time.sleep(0.1)
     else:
       return None
   def set(self, key, value):
     from boto.s3.connection import Key
+    from boto.exception import S3PermissionsError
     with self.oplock:
       k = Key(self.bucket)
       k.key = key
-      k.set_contents_from_string(value)
+      while True:
+        try:
+          k.set_contents_from_string(value)
+          break
+        except S3PermissionsError, e:
+          fatal('permission error')
+        except:
+          pass
+        time.sleep(0.1)
   def exists(self, key):
     with self.oplock:
-      return True if self.bucket.get_key(key) else False
+      while True:
+        try:
+          return True if self.bucket.get_key(key) else False
+        except S3PermissionsError, e:
+          fatal('permission error')
+        except:
+          pass
+        time.sleep(0.1)
   def list(self, prefix=''):
-    return self.bucket.list(prefix=prefix)
+    while True:
+      try:
+        return self.bucket.list(prefix=prefix)
+      except S3PermissionsError, e:
+        fatal('permission error')
+      except:
+        pass
+      time.sleep(0.1)
   def delete(self, key):
     from boto.s3.connection import Key
     with self.oplock:
       k = Key(self.bucket)
       k.key = key
-      k.delete()
+      while True:
+        try:
+          k.delete()
+        except S3PermissionsError, e:
+          fatal('permission error')
+        except:
+          pass
+        time.sleep(0.1)
 
 class Block:
   def __init__(self, data, timestamp):
@@ -208,6 +254,7 @@ class S3BD:
                  self.opts.bucket)
 
   def open(self):
+    print "Connecting ..."
     self.inits3()
     meta = self.s3.get('%s/info' % self.opts.prefix)
     if meta is None:
@@ -229,8 +276,9 @@ class S3BD:
     self.workerstop = False
     self.workerthread = threading.Thread()
     self.workerthread.run = self.worker
-    self.workerthread.daemon = True # FIXME delete this line
+    self.workerthread.daemon = True
     self.workerthread.start()
+    print "Connected and ready to serve!"
     self.nbd.run()
     self.workerstop = True
     self.workerthread.join()
