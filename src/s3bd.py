@@ -20,6 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
+import re
 import sys
 import argparse
 import S3NBD
@@ -36,7 +37,10 @@ def main():
     description="NBD server with Amazon S3 as the backend"
   )
   _add_common_args(parser)
-  subparsers = parser.add_subparsers(help="s3bd commands")
+  subparsers = parser.add_subparsers(
+    help="s3bd commands",
+    dest="command"
+  )
 
   # close arguments
   parser_a = subparsers.add_parser(
@@ -103,8 +107,8 @@ def main():
 
   args = parser.parse_args()
 
-  if args.version:
-    print(S3NBD.__version__)
+  exec ('import S3NBD.cmd.%s' % args.command) in locals(), globals()
+  exec ('S3NBD.cmd.%s.main(args)' % args.command) in locals(), globals()
 
 def _storage_size(value):
   """Parse a size with possible letter multipliers and return the actual
