@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# s3bd_init.py - Initialize a new S3 volume
+# init.py - Initialize a new S3 volume
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -22,28 +22,8 @@ from __future__ import absolute_import
 from __future__ import division
 import sys
 import argparse
-import S3NBD
-#from S3NBD import auth
-from S3NBD import cmdline
+import .
+#from . import auth
 
 def main():
-  parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description="Initialize a new S3 volume",
-  )
-  cmdline.add_common_args(parser)
-  cmdline.add_name_args(parser)
-  cmdline.add_size_arg(parser, as_arg=True)
-  cmdline.add_blocksize_arg(parser)
-  cmdline.add_auth_args(parser)
-
-  args = parser.parse_args()
-
-  if args.version:
-    print(S3NBD.__print_ver__)
-    exit(0)
-
-  print(repr(args))
-
-if __name__ == '__main__':
-  main()
+  pass
