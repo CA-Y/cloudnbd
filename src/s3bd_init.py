@@ -34,12 +34,13 @@ def main():
   cmdline.add_common_args(parser)
   cmdline.add_name_args(parser)
   cmdline.add_size_arg(parser, as_arg=True)
+  cmdline.add_blocksize_arg(parser)
   cmdline.add_auth_args(parser)
 
   args = parser.parse_args()
 
   if args.version:
-    print(S3NBD.__version__)
+    print(S3NBD.__print_ver__)
     exit(0)
 
   print(repr(args))

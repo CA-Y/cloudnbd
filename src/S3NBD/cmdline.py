@@ -29,8 +29,8 @@ def _storage_size(value):
   """Parse a size with possible letter multipliers and return the actual
   value as integer.
   """
-  m = re.match(ur'(\d+)([kmgtp]?)', value.strip().lower())
-  if m:
+  m = re.match(ur'(\d+)(.?)', value.strip().lower())
+  if m and m.group(2) in list('kmgtp') + ['']:
     im = {'': 1e0, 'k': 1e3, 'm': 1e6,
           'g': 1e9, 't': 1e12, 'p': 1e15}
     return int(int(m.group(1)) * im[m.group(2)])
@@ -42,12 +42,14 @@ def add_name_args(parser):
   """Add volume bucket and name arguments to the parser."""
   parser.add_argument(
     'bucket',
-    type=str,
+    metavar='<bucket>',
+    type=unicode,
     help="S3 bucket name where volume to be stored"
   )
   parser.add_argument(
     'volume',
-    type=str,
+    metavar='<volume>',
+    type=unicode,
     help="name of the volume"
   )
 
@@ -61,6 +63,7 @@ def add_size_arg(parser, as_arg = False):
   parser.add_argument(
     *(['size'] if as_arg else ['-s', '--size']),
     type=_storage_size,
+    metavar="<size>",
     help="default size of volume as reported to NBD client -"
          " e.g. 100T which is 100 terabytes"
   )
@@ -69,8 +72,9 @@ def add_blocksize_arg(parser):
   """Add block size argument to the parser."""
   parser.add_argument(
     '-b', '--block-size',
+    metavar="<size>",
     type=_storage_size,
-    help="block size of block as stored on S3 -"
+    help="block size of blocks as stored on S3 -"
          " e.g. 100T which is 100 terabytes"
   )
 
@@ -78,11 +82,13 @@ def add_server_args(parser):
   """Add NBD server related arguments to parser."""
   parser.add_argument(
     '-i', '--bind-address',
-    type=str,
+    metavar="<ip>",
+    type=unicode,
     help="the IP address the NBD server will be bound to"
   )
   parser.add_argument(
     '-p', '--port',
+    metavar="<port>",
     type=int,
     help="the port the NBD server will listen on"
   )
@@ -91,17 +97,20 @@ def add_auth_args(parser):
   """Add authentication related arguments to the parser."""
   parser.add_argument(
     '-a', '--access-key',
-    type=str,
+    metavar="<access-key>",
+    type=unicode,
     help="S3 access key"
   )
   parser.add_argument(
     '-k', '--secret-key',
-    type=str,
+    metavar="<secret-key>",
+    type=unicode,
     help="S3 secret key"
   )
   parser.add_argument(
     '-y', '--passphrase',
-    type=str,
+    metavar="<passphrase>",
+    type=unicode,
     help="passphrase used to enrypt data on S3"
   )
 
