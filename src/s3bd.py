@@ -19,7 +19,6 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import division
-import re
 import sys
 import argparse
 import s3nbd
@@ -28,7 +27,7 @@ def main():
 
   if any(map(lambda a: unicode(a) in ['-v', '--version'],
          sys.argv[1:])):
-    print(s3nbd.__print_ver__)
+    print(s3nbd._print_ver)
     exit(0)
 
   parser = argparse.ArgumentParser(
@@ -61,6 +60,12 @@ def main():
   )
   _add_name_args(parser_a)
   _add_auth_args(parser_a)
+  _add_root_arg(parser_a)
+  parser_a.add_argument(
+    '--all',
+    action='store_true',
+    help="show info about all roots"
+  )
 
   # init arguments
   parser_a = subparsers.add_parser(
@@ -71,6 +76,7 @@ def main():
   _add_size_arg(parser_a, as_arg=True)
   _add_blocksize_arg(parser_a)
   _add_auth_args(parser_a)
+  _add_root_arg(parser_a)
   
   # list arguments
   parser_a = subparsers.add_parser(
@@ -87,6 +93,7 @@ def main():
   _add_size_arg(parser_a)
   _add_server_args(parser_a)
   _add_auth_args(parser_a)
+  _add_root_arg(parser_a)
 
   # resize arguments
   parser_a = subparsers.add_parser(
@@ -96,6 +103,17 @@ def main():
   _add_name_args(parser_a)
   _add_size_arg(parser_a, as_arg=True)
   _add_auth_args(parser_a)
+  _add_root_arg(parser_a)
+
+  # snapshot arguments
+  parser_a = subparsers.add_parser(
+    'snapshot',
+    help='create a snapshot of an existing root'
+  )
+  _add_name_args(parser_a)
+  _add_auth_args(parser_a)
+  _add_snapshot_arg(parser_a)
+  _add_root_arg(parser_a, is_base=True)
 
   # stat arguments
   parser_a = subparsers.add_parser(
@@ -106,13 +124,15 @@ def main():
 
   args = parser.parse_args()
 
-  exec ('import s3nbd.cmd.%s' % args.command) in locals(), globals()
-  exec ('s3nbd.cmd.%s.main(args)' % args.command) in locals(), globals()
+  exec ('import s3nbd.cmd.%scmd' % args.command) in locals(), globals()
+  exec ('s3nbd.cmd.%scmd.main(args)' % args.command) \
+    in locals(),globals()
 
 def _storage_size(value):
   """Parse a size with possible letter multipliers and return the actual
   value as integer.
   """
+  import re
   m = re.match(ur'(\d+)(.?)', value.strip().lower())
   if m and m.group(2) in list('kmgtp') + ['']:
     im = {'': 1e0, 'k': 1e3, 'm': 1e6,
@@ -137,6 +157,26 @@ def _add_name_args(parser):
     help="name of the volume"
   )
 
+def _add_root_arg(parser, is_base = False):
+  """Add root argument to the parser."""
+  parser.add_argument(
+    '-r', '--root',
+    metavar="<root>",
+    default=s3nbd._default_root,
+    help="name of the root to %s (default: %s)"
+         % ('base the new root on' if is_base else 'use',
+            s3nbd._default_root)
+  )
+
+def _add_snapshot_arg(parser):
+  """Add snapshot related arguments to the parser."""
+  parser.add_argument(
+    'new-root',
+    metavar='<new-root>',
+    type=unicode,
+    help="name of the new root"
+  )
+
 def _add_size_arg(parser, as_arg = False):
   """Add size argument to the parser.
 
@@ -158,8 +198,8 @@ def _add_blocksize_arg(parser):
     '-b', '--block-size',
     metavar="<size>",
     type=_storage_size,
-    help="block size of blocks as stored on S3 -"
-         " e.g. 100T which is 100 terabytes"
+    help="block size of blocks as stored on S3 - e.g. 100T which is"
+         " 100 terabytes (default: %d)" % s3nbd._default_bs
   )
 
 def _add_server_args(parser):
@@ -167,14 +207,18 @@ def _add_server_args(parser):
   parser.add_argument(
     '-i', '--bind-address',
     metavar="<ip>",
+    default=s3nbd._default_bind,
     type=unicode,
     help="the IP address the NBD server will be bound to"
+         " (default: all interfaces)"
   )
   parser.add_argument(
     '-p', '--port',
     metavar="<port>",
+    default=s3nbd._default_port,
     type=int,
     help="the port the NBD server will listen on"
+         " (default: %d)" % s3nbd._default_port
   )
 
 def _add_auth_args(parser):

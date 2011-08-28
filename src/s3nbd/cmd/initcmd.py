@@ -21,9 +21,43 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
 import s3nbd
-from s3nbd.cmd import fatal, warning, info
+from s3nbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
-  s3nbd.auth.get_all_cred(args)
-  s3 = S3NBD
-  pass
+
+  get_all_creds(args)
+
+  s3 = s3nbd.s3.S3(
+    access_key=args.access_key,
+    secret_key=args.secret_key,
+    bucket=args.bucket,
+    volume=args.volume
+  )
+
+  # check our access to S3
+
+  try:
+    s3.check_access()
+  except s3nbd.s3.BadCredentials as e:
+    fatal(e.args[0])
+  except s3nbd.s3.InvalidBucket as e:
+    fatal(e.args[0])
+
+  cryptkey = s3nbd.auth.get_key(args.passphrase)
+  blocktree = s3nbd.blocktree.BlockTree(
+    cryptkey=cryptkey,
+    s3=s3
+  )
+
+  # ensure no volume with the same name exists
+  
+  try:
+    blocktree.get('config', direct=True)
+  except:
+    pass
+  else:
+    fatal("volume '%s' in bucket '%s' already exists"
+          % (args.volume, args.bucket))
+
+  # set up the config
+

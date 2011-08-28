@@ -2,17 +2,32 @@
 TODO
 """
 
-__prog_name__ = 's3bd'
-__ver_major__ = 0
-__ver_minor__ = 1
-__ver_patch__ = 0
-__ver_sub__ = ''
-__ver_tuple__ = (__ver_major__, __ver_minor__,
-                 __ver_patch__, __ver_sub__)
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import absolute_import
+from __future__ import division
 
-__version__ = '%d.%d.%d%s' % __ver_tuple__
+_ver_major = 0
+_ver_minor = 1
+_ver_patch = 0
+_ver_sub = ''
+_ver_tuple = (_ver_major, _ver_minor, _ver_patch, _ver_sub)
 
-__print_ver__ = '%s %s' % (__prog_name__, __version__)
+__version__ = '%d.%d.%d%s' % _ver_tuple
+
+_prog_name = 's3bd'
+_print_ver = '%s %s' % (_prog_name, __version__)
+_local_cache_dir = '/var/cache'
+_local_run_dir = '/var/run'
+
+_default_bs = 2 ** 16
+_default_bmp_bs = 2 ** 10
+_default_refcnt_bs = 2 ** 10
+_default_root = 'cur'
+_default_bind = ''
+_default_port = 7323
 
 from s3nbd import cmd
 from s3nbd import auth
+from s3nbd import s3
+from s3nbd import blocktree
