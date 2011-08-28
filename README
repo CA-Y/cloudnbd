@@ -1,1 +1,54 @@
-Network Block Device server with Amazon S3 as backend.
+
+s3bd: A network block device with Amazon S3 storage as backend
+========================================================================
+
+If you care about your data, you back it up. However, a backup that
+can't be restored when you need it is as useless as no backup. You need
+to make sure you backup is immune to physical theft, natural disasters
+and other causes that results in data loss. You also need to ensure
+availability of the data when you need it and its integrity. Now, it's
+hard to come by all these qualities using an external hard drive for
+instance. Amazon S3 storage service however provides all the above at a
+very cheap price. But it doesn't give you the flexibility of a local
+hard disk.
+
+s3bd is an interface to S3 that acts as a normal block device. You can
+format it using your favorite filesystem or use it in a RAID
+configuration, etc. Below is the list of features:
+
+  * Full metadata integrity in case of network/power failure
+  * Writable COW (Copy-On-Write) snapshots with little overhead
+  * No limits on anything! (including total size, block size, number of
+    snapshots, etc.)
+  * Ability to resize the size of a volume at anytime
+  * Password protection of all data using AES-256 encryption
+  * Persistent local caching of data for faster access
+  * All data is stored in compressed format on S3 (unless the compressed
+    size is larger than the plain data in which case the plain data is
+    stored)
+
+s3bd acts as an NBD (Network Block Device) server when run. To create an
+actual linux block device, you need nbd-client which is a part of NBD
+user-space tools (TCP version) which is most likely shipped with your
+distribution.
+
+Here's an example of how to create a new volume on S3 (assuming you
+already have a bucket named 'jennyt-mybackup'), format it with btrfs and
+mount it on /mnt:
+
+  $ s3bd init jennyt-mybackup/photos -s 20GB
+
+Note that -s 20GB only tells s3bd what size to report to nbd-client by
+default. It does not actually allocate 20GB on S3.
+
+And now we're ready to format it and mount it locally:
+
+  $ mknod s3block b 43 1
+  $ s3bd open jennyt-mybackup/photos -p 12345
+  $ nbd-client localhost 12345 s3block -b 4096
+
+That's it. Now the newly created block device 's3block' is ready to be
+formatted with FS of your choosing:
+
+  $ mkfs.btrfs s3block
+  $ mount s3block /mnt

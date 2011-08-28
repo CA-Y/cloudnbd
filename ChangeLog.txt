@@ -1,0 +1,7 @@
+2011-08-28  Mansour  <mansour@oxplot.com>
+
+	* Initial version
+
+Copyright 2011 Mansour <mansour@oxplot.com>.
+Copying and distribution of this file, with or without modification, are
+permitted provided the copyright notice and this notice are preserved.
