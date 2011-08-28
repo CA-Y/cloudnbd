@@ -18,18 +18,17 @@
 
 from __future__ import print_function
 from __future__ import unicode_literals
-from __future__ import absolute_import
 from __future__ import division
 import re
 import sys
 import argparse
-import S3NBD
+import s3nbd
 
 def main():
 
   if any(map(lambda a: unicode(a) in ['-v', '--version'],
          sys.argv[1:])):
-    print(S3NBD.__print_ver__)
+    print(s3nbd.__print_ver__)
     exit(0)
 
   parser = argparse.ArgumentParser(
@@ -107,8 +106,8 @@ def main():
 
   args = parser.parse_args()
 
-  exec ('import S3NBD.cmd.%s' % args.command) in locals(), globals()
-  exec ('S3NBD.cmd.%s.main(args)' % args.command) in locals(), globals()
+  exec ('import s3nbd.cmd.%s' % args.command) in locals(), globals()
+  exec ('s3nbd.cmd.%s.main(args)' % args.command) in locals(), globals()
 
 def _storage_size(value):
   """Parse a size with possible letter multipliers and return the actual

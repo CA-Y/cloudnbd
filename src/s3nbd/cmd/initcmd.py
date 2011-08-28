@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# init.py - Initialize a new S3 volume
+# initcmd.py - Initialize a new S3 volume
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,8 +20,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import S3NBD
-#from . import auth
+import s3nbd
+from s3nbd.cmd import fatal, warning, info
 
 def main(args):
+  s3nbd.auth.get_all_cred(args)
+  s3 = S3NBD
   pass
