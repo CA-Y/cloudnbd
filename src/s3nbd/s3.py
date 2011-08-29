@@ -27,15 +27,38 @@ class S3AccessDenied(Error):
 class S3NoSuchBucket(Error):
   pass
 
+class S3Object(object):
+  """An S3 object with content and metadata, initially however
+  containing only the metadata.
+  """
+
+  def __init__(self, parent, s3key):
+    self._parent = parent
+    self._s3key = s3key
+    self.metadata = s3key.metadata
+
+  def get_content(self):
+    """Download the content of the this object."""
+    import time
+    with self._parent._lock:
+      while True:
+        try:
+          return self._s3key.get_contents_as_string()
+        except: # XXX we might want to only catch certain errors here
+          pass 
+        time.sleep(1)
+
 class S3(object):
   """Amazon S3 web service interface"""
   def __init__(self, access_key = None, secret_key = None,
                bucket = None, volume = None):
+    import threading
     self.access_key = access_key
     self.secret_key = secret_key
     self.bucket = bucket
     self.volume = volume
     self._can_access = False
+    self._lock = threading.RLock()
 
   def check_access(self):
     """Determine whether this S3 instance with the given credentials is
@@ -53,4 +76,19 @@ class S3(object):
         raise S3AccessDenied('Invalid access key or secret for the'
                              ' specified bucket')
     self._can_access = True
+
+  def get(self, path):
+    import time
+    with self._lock:
+      while True:
+        try:
+          key = self._bucket.get_key('%s/%s'
+            % (self.volume, path.strip('/')))
+        except: # XXX maybe specify some exceptions here
+          pass
+        time.sleep(1)
+    return S3Object(parent=self, s3key=key)
+
+  def set(self, path, content, metadata={}):
+    pass
   

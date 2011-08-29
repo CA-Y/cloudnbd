@@ -34,4 +34,4 @@ class BlockTree(object):
     pass
 
   def get(self, path, start = None, end = None, direct = False):
-    pass
+    
