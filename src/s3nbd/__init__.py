@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
+import json
 
 _ver_major = 0
 _ver_minor = 1
@@ -26,6 +27,23 @@ _default_refcnt_bs = 2 ** 10
 _default_root = 'cur'
 _default_bind = ''
 _default_port = 7323
+
+_salt = 'EyAEAPVOvfqERT8hsJB5tgy0dB0x7Erp'
+
+class InvalidConfigFormat(Error):
+  pass
+
+def deserialize_config(data):
+  try:
+    return json.loads(data)
+  except ValueError:
+    raise InvaliConfigFormat('Failed to decode the config data')
+
+def serialize_config(data):
+  try:
+    return json.dumps(data)
+  except TypeError:
+    raise InvaliConfigFormat('Failed to encode the config data')
 
 from s3nbd import cmd
 from s3nbd import auth

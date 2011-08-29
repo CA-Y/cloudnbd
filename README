@@ -20,7 +20,7 @@ configuration, etc. Below is the list of features:
   * Writable COW (Copy-On-Write) snapshots with little overhead
   * No limits on anything! (including total size, block size, number of
     snapshots, etc.)
-  * Ability to resize the size of a volume at anytime
+  * Ability to resize a volume after creation
   * Password protection of all data using AES-256 encryption
   * Persistent local caching of data for faster access
   * All data is stored in compressed format on S3 (unless the compressed
@@ -36,15 +36,15 @@ Here's an example of how to create a new volume on S3 (assuming you
 already have a bucket named 'jennyt-mybackup'), format it with btrfs and
 mount it on /mnt:
 
-  $ s3bd init jennyt-mybackup/photos -s 20GB
+  $ s3bd init jennyt-mybackup photos 20GB
 
-Note that -s 20GB only tells s3bd what size to report to nbd-client by
+Note that 20GB only tells s3bd what size to report to nbd-client by
 default. It does not actually allocate 20GB on S3.
 
 And now we're ready to format it and mount it locally:
 
   $ mknod s3block b 43 1
-  $ s3bd open jennyt-mybackup/photos -p 12345
+  $ s3bd open jennyt-mybackup photos -p 12345
   $ nbd-client localhost 12345 s3block -b 4096
 
 That's it. Now the newly created block device 's3block' is ready to be

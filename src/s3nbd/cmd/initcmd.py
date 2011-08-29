@@ -38,14 +38,14 @@ def main(args):
 
   try:
     s3.check_access()
-  except s3nbd.s3.BadCredentials as e:
-    fatal(e.args[0])
-  except s3nbd.s3.InvalidBucket as e:
+  except (s3nbd.s3.S3ResponseError, s3nbd.s3.S3NoSuchBucket) as e:
     fatal(e.args[0])
 
-  cryptkey = s3nbd.auth.get_key(args.passphrase)
+  pass_key = s3nbd.auth.get_pass_key(args.passphrase)
+  crypt_key = s3nbd.auth.gen_crypt_key()
   blocktree = s3nbd.blocktree.BlockTree(
-    cryptkey=cryptkey,
+    pass_key=pass_key,
+    crypt_key=crypt_key,
     s3=s3
   )
 
@@ -61,3 +61,25 @@ def main(args):
 
   # set up the config
 
+  volume_config = {
+    'bs': s3nbd._default_bs,
+    'bmp_bs': s3nbd._default_bmp_bs,
+    'refcnt_bs': s3nbd._default_refcnt_bs,
+    'crypt_key': crypt_key,
+    'next_block': 0
+  }
+
+  root_config = {
+    'size': args.size
+  }
+
+  try:
+    volume_config = s3nbd.serialize_config(volume_config)
+    root_config = s3nbd.serialize_config(root_config)
+
+  # to avoid using transactions here, we write the config for the root
+  # first before the volume - that way only when the volume is written
+  # we know that root config is also written
+  
+  blocktree.set('roots/%s/config' % args.root, root_config, direct=True)
+  blocktree.set('config', volume_config, direct=True)
