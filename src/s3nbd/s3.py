@@ -82,13 +82,23 @@ class S3(object):
     with self._lock:
       while True:
         try:
-          key = self._bucket.get_key('%s/%s'
-            % (self.volume, path.strip('/')))
+          key = self._bucket.get_key('%s/%s' % (self.volume, path))
+          break
         except: # XXX maybe specify some exceptions here
           pass
         time.sleep(1)
     return S3Object(parent=self, s3key=key)
 
   def set(self, path, content, metadata={}):
-    pass
-  
+    from boto.s3.connection import Key
+    with self._lock:
+      k = Key(self._bucket)
+      k.key = '%s/%s' % (self.volume, path)
+      k.metadata = metadata
+      while True:
+        try:
+          k.set_contents_from_string(content)
+          break
+        except: # XXX maybe specify some exceptions here
+          pass
+        time.sleep(1)
