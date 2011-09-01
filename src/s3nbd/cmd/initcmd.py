@@ -52,7 +52,7 @@ def main(args):
   # ensure no volume with the same name exists
   
   try:
-    blocktree.get('config', direct=True)
+    blocktree.get('config', cache='ignore')
   except:
     pass
   else:
@@ -80,5 +80,10 @@ def main(args):
   # first before the volume - that way only when the volume is written
   # we know that root config is also written
   
-  blocktree.set('roots/%s/config' % args.root, root_config, direct=True)
-  blocktree.set('config', volume_config, direct=True)
+  blocktree.set(
+    'roots/%s/config' % args.root,
+    root_config,
+    direct=True,
+    dont_cache=True
+  )
+  blocktree.set('config', volume_config, direct=True, dont_cache=True)

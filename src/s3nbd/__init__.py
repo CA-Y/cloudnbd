@@ -27,10 +27,12 @@ _default_refcnt_bs = 2 ** 10
 _default_root = 'cur'
 _default_bind = ''
 _default_port = 7323
+_checksum_cache_size = 1000 # entries
+_checksum_cache_reduction_ratio = 0.7
 
-_salt = 'EyAEAPVOvfqERT8hsJB5tgy0dB0x7Erp'
+_salt = b'EyAEAPVOvfqERT8hsJB5tgy0dB0x7Erp'
 
-class InvalidConfigFormat(Error):
+class InvalidConfigFormat(Exception):
   pass
 
 def deserialize_config(data):

@@ -21,10 +21,13 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
 import s3nbd
+import time
 
-class S3AccessDenied(Error):
+class S3AccessDenied(Exception):
   pass
-class S3NoSuchBucket(Error):
+class S3NoSuchBucket(Exception):
+  pass
+class S3AccessNotChecked(Exception):
   pass
 
 class S3Object(object):
@@ -39,7 +42,6 @@ class S3Object(object):
 
   def get_content(self):
     """Download the content of the this object."""
-    import time
     with self._parent._lock:
       while True:
         try:
@@ -78,6 +80,9 @@ class S3(object):
     self._can_access = True
 
   def get(self, path):
+    """Get the value of the object given by the path."""
+    if not self._can_access:
+      raise S3AccessNotChecked('check_access() must be called first')
     import time
     with self._lock:
       while True:
@@ -87,9 +92,15 @@ class S3(object):
         except: # XXX maybe specify some exceptions here
           pass
         time.sleep(1)
-    return S3Object(parent=self, s3key=key)
+    if key:
+      return S3Object(parent=self, s3key=key)
+    else:
+      return None
 
   def set(self, path, content, metadata={}):
+    """Set the value of the object given by the path."""
+    if not self._can_access:
+      raise S3AccessNotChecked('check_access() must be called first')
     from boto.s3.connection import Key
     with self._lock:
       k = Key(self._bucket)
@@ -102,3 +113,23 @@ class S3(object):
         except: # XXX maybe specify some exceptions here
           pass
         time.sleep(1)
+
+  def copy(self, old_path, new_path):
+    while True:
+      try:
+        self._bucket.copy_key(
+          '%s/%s' % (volume, new_path),
+          self.bucket,
+          '%s/%s' % (volume, old_path)
+        )
+      except:
+        pass
+      time.sleep(1)
+
+  def delete(self, path):
+    while True:
+      try:
+        self._bucket.delete_key('%s/%s' % (volume, path))
+      except:
+        pass
+      time.sleep(1)

@@ -22,7 +22,15 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
 import s3nbd
-from s3nbd.cmdlind import fatal, warning, info
+import os
+import struct
+import zlib
+import hashlib
+import shelve
+import glob
+import time
+from s3nbd.cmd import fatal, warning, info
+from Crypto.Cipher import AES
 
 class BlockTree(object):
   """Interface between S3/Local cache and the high level logic."""
@@ -30,36 +38,208 @@ class BlockTree(object):
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.s3 = s3
+    self._transaction = {}
+    self._checksums = {}
 
-  def set(self, path, data, direct = False):
+  def set(self, path, data, direct = False, dont_cache = False):
     """Set the value of an object locally and optionally remotely. If
     direct is set to True, the data is immediately uploaded to S3.
     """
-    chksum = self._build_checksum(path, data)
+    checksum = self._build_checksum(path, data)
     cryptdata = self._encrypt_data(path, data)
-    self._set_local(path, cryptdata)
-    self._set_checksum(path, chksum)
+    if not (direct and dont_cache):
+      self._set_local(path, cryptdata)
+      self._set_checksum(path, checksum)
     if direct:
-      self._upload(path, cryptdata, chksum)
+      self.s3.set(path, cryptdata, metadata={'checksum': checksum})
     else:
-      self._append_trans(path, cryptdata)
+      self._append_transaction(path)
 
-  def get(self, path, direct = False):
-    if direct:
-      return self._download(path)
-    cryptdata = self._load_local(path)
-    if cryptdata is None:
-      if path in self._transaction:
-        fatal('local copy of a in-transaction block is missing')
+  def _append_transaction(self, path):
+    self._transaction[path] = self._checksums[path]
+
+  def _build_checksum(self, path, data):
+    """Calculate the checksum for given path anda data."""
+    key = self.pass_key if path == 'config' else self.crypt_key
+    hasher = hashlib.sha256(s3nbd._salt + key
+      + path.encode('utf8') + data)
+    iv = hasher.digest()
+
+  def _download(self, path, store_locally = True):
+    """Download the object from S3 and save it locally and return the
+    plain value.
+    """
+    remoteobj = self.s3.get(path)
+    cryptdata = remoteobj.get_content() if remoteobj else ''
+    plaindata = self._decrypt_data(path, cryptdata)
+    checksum = self._build_checksum(path, plaindata)
+    if remoteobj and checksum != remoteobj.metadata['checksum']:
+      fatal("Remote object's data checksum does not match its metadata"
+            " checksum")
+    if store_locally:
+      if remoteobj:
+        self._set_local(path, cryptdata)
+      self._set_checksum(path, checksum)
+    return plaindata
+
+  def _get_local_path(self, path):
+    """Get the physical path for the given relative path of object."""
+    return os.path.join(
+      s3nbd._local_cache_dir,
+      'objects',
+      s3.bucket,
+      s3.volume,
+      path
+    )
+
+  def _get_local(self, path):
+    """Return the content of the object from local cache."""
+    filepath = self._get_local_path(path)
+    if os.path.exists(filepath):
+      return open(filepath, 'rb').read()
+    else:
+      return ''
+
+  def _set_local(self, path, data):
+    """Set the content of the object in the local cache."""
+    if not data:
+      return
+    filepath = self._get_local_path(path)
+    try:
+      os.makedirs(os.path.dirname(filepath))
+    except OSError:
+      pass
+    open(filepath, 'wb').write(data)
+
+  def _decrypt_data(self, path, data):
+    """Decrypt the given data."""
+    if not data:
+      return ''
+    zipped, size = struct.unpack_from('!BQ', data, 0)
+    data = data[struct.calcsize('!BQ'):]
+    key = self.pass_key if path == 'config' else self.crypt_key
+    hasher = hashlib.sha256(s3nbd._salt + path.encode('utf8'))
+    iv = hasher.digest()
+    decryptor = AES.new(key, AES.MODE_CBC, iv)
+    data = decryptor.decrypt(data)
+    data = data[:size]
+    if zipped:
+      data = zlib.decompress(data)
+    return data
+
+  def _encrypt_data(self, path, data):
+    """Encrypt the given data."""
+    if not data:
+      return ''
+    zipped = zlib.compress(data)
+    if len(zipped) < len(data):
+      storezip = 1
+      data = zipped
+    else:
+      storezip = 0
+    header = struct.pack('!BQ', storezip, len(data))
+    data = data.ljust((len(data) // 32 + 1) * 32, b'\0')
+    key = self.pass_key if path == 'config' else self.crypt_key
+    hasher = hashlib.sha256(s3nbd._salt + path.encode('utf8'))
+    iv = hasher.digest()
+    encryptor = AES.new(key, AES.MODE_CBC, iv)
+    data = encryptor.encrypt(data)
+    return header + data
+
+  def get(self, path, cache = 'use'):
+    """Get the value of an object.
+    
+    Parameters:
+    cache - if set to 'ignore', all local cache operations are bypassed,
+            if set to 'store_only', local cache is not asked for cached
+            data but the new downloaded data will be stored in it, and
+            the default value 'use' makes use of cache for both
+            purpsoses
+    """
+    if not cache == 'use':
+      return self._download(path,
+        store_locally=not cache == 'ignore')
+    data = self._decrypt_data(path, self._get_local(path))
+    checksum = self._build_checksum(path, data)
+    local_checksum = self._get_checksum(path)
+    if path in self._transaction:
+      if local_checksum is None:
+        fatal('Missing local checksum of an in-transaction object')
+      if local_checksum != checksum:
+        fatal('Mismatching local checksum of an in-transaction obj')
+      return data
+    if local_checksum is None:
+      remoteobj = self.s3.get(path)
+      if remoteobj:
+        remote_checksum = remoteobj.metadata['checksum']
+      else:
+        remote_checksum = self._build_checksum(path, '')
+      local_checksum = remote_checksum
+      self._set_checksum(path, remote_checksum)
+    if checksum != local_checksum:
       return self._download(path)
     else:
-      plaindata = self._decrypt_data(path, cryptdata)
-      local_chksum = self._get_checksum(path)
-      if local_chksum is None:
-        self._set_checksum(self._s3.get(path).metadata['chksum'])
-        local_chksum = self._get_checksum(path)
-      chksum = self._build_checksum(path, plaindata)
-      if chksum != local_chksum:
-        return self._download(path)
-      else:
-        return plaindata
+      return data
+
+  def _set_checksum(self, path, checksum):
+    self._checksums[path] = (checksum, time.time())
+    if len(self._checksums) > s3nbd._checksum_cache_size:
+      new_size = int(s3nbd._checksum_cache_size *
+                     s3nbd._checksum_cache_reduction_ratio)
+      key_list = self._checksums.items()
+      key_list.sort(cmp=lambda a, b: cmp(a[1][1], b[1][1]),
+                    reverse=True)
+      self._checksums = dict(key_list[:new_size])
+
+  def _get_checksum(self, path, checksum):
+    if path in self._transaction:
+      return self._transaction[path]
+    else:
+      return self._checksums[path] if path in self._checksums else None
+
+  def commit(self):
+    """Commit the outstanding transaction."""
+    if not self._transaction:
+      return
+    tran_log = s3nbd.serialize_config(self._transaction.keys())
+    self.set('trans', tran_log, direct=True, dont_cache=True)
+    for path in self._transaction:
+      checksum = self._transaction[path]
+      data = self._decrypt_data(path, self._get_local(path))
+      local_checksum = self._build_checksum(path, data)
+      if checksum != local_checksum:
+        fatal('Local stored checksum is different to actual checksum'
+              ' of in-transaction object')
+      remote_path = 'trans/' + path
+      self.s3.set(remote_path, data, metadata={'checksum': checksum})
+    self.finalize_transaction(transaction_objects=self._transaction,
+      committed_objects=self._transaction)
+
+  def finalize_transaction(self, transaction_objects = None,
+                           committed_objects=None):
+    """Move data from temporary area on S3 to permanent place."""
+    if transaction_objects is None:
+      tran_log = self.get('trans', cache='ignore')
+      if not tran_log:
+        return
+      transaction_objects = s3nbd.deserialize_config(tran_log)
+      
+    if not transaction_objects:
+      return
+
+    if committed_objects is None:
+      committed_objects = set()
+      for path in transaction_objects:
+        remoteobj = self.s3.get('trans/' + path)
+        if remoteobj:
+          committed_objects.add(path)
+
+    # if committed objects are less in number than they should be,
+    # delete them and abort the transaction
+
+    if len(committed_objects) == len(transaction_objects):
+      for path in committed_objects:
+        self.s3.copy('trans/' + path, path)
+    for path in committed_objects:
+      self.s3.delete('trans/' + path)
+    self.s3.delete('trans')
