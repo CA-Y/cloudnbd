@@ -118,10 +118,11 @@ class S3(object):
     while True:
       try:
         self._bucket.copy_key(
-          '%s/%s' % (volume, new_path),
+          '%s/%s' % (self.volume, new_path),
           self.bucket,
-          '%s/%s' % (volume, old_path)
+          '%s/%s' % (self.volume, old_path)
         )
+        break
       except:
         pass
       time.sleep(1)
@@ -129,7 +130,8 @@ class S3(object):
   def delete(self, path):
     while True:
       try:
-        self._bucket.delete_key('%s/%s' % (volume, path))
+        self._bucket.delete_key('%s/%s' % (self.volume, path))
+        break
       except:
         pass
       time.sleep(1)
