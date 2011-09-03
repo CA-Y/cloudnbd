@@ -110,8 +110,8 @@ class S3(object):
         try:
           k.set_contents_from_string(content)
           break
-        except: # XXX maybe specify some exceptions here
-          pass
+        except Exception as e: # XXX maybe specify some exceptions here
+          raise e
         time.sleep(1)
 
   def copy(self, old_path, new_path):

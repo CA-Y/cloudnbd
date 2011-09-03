@@ -63,7 +63,7 @@ class BlockTree(object):
     key = self.pass_key if path == 'config' else self.crypt_key
     hasher = hashlib.sha256(s3nbd._salt + key
       + path.encode('utf8') + data)
-    iv = hasher.digest()
+    return hasher.hexdigest()
 
   def _download(self, path, store_locally = True):
     """Download the object from S3 and save it locally and return the
@@ -115,10 +115,10 @@ class BlockTree(object):
     """Decrypt the given data."""
     if not data:
       return ''
-    zipped, size = struct.unpack_from('!BQ', data, 0)
-    data = data[struct.calcsize('!BQ'):]
+    zipped, size = struct.unpack_from(b'!BQ', data, 0)
+    data = data[struct.calcsize(b'!BQ'):]
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.sha256(s3nbd._salt + path.encode('utf8'))
+    hasher = hashlib.md5(s3nbd._salt + path.encode('utf8'))
     iv = hasher.digest()
     decryptor = AES.new(key, AES.MODE_CBC, iv)
     data = decryptor.decrypt(data)
@@ -137,10 +137,10 @@ class BlockTree(object):
       data = zipped
     else:
       storezip = 0
-    header = struct.pack('!BQ', storezip, len(data))
+    header = struct.pack(b'!BQ', storezip, len(data))
     data = data.ljust((len(data) // 32 + 1) * 32, b'\0')
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.sha256(s3nbd._salt + path.encode('utf8'))
+    hasher = hashlib.md5(s3nbd._salt + path.encode('utf8'))
     iv = hasher.digest()
     encryptor = AES.new(key, AES.MODE_CBC, iv)
     data = encryptor.encrypt(data)
@@ -243,3 +243,4 @@ class BlockTree(object):
     for path in committed_objects:
       self.s3.delete('trans/' + path)
     self.s3.delete('trans')
+
