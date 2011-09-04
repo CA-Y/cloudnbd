@@ -56,7 +56,7 @@ class BlockTree(object):
       self._append_transaction(path)
 
   def _append_transaction(self, path):
-    self._transaction[path] = self._checksums[path]
+    self._transaction[path] = self._checksums[path][0]
 
   def _build_checksum(self, path, data):
     """Calculate the checksum for given path anda data."""
@@ -87,8 +87,8 @@ class BlockTree(object):
     return os.path.join(
       s3nbd._local_cache_dir,
       'objects',
-      s3.bucket,
-      s3.volume,
+      self.s3.bucket,
+      self.s3.volume,
       path
     )
 
@@ -162,6 +162,8 @@ class BlockTree(object):
     data = self._decrypt_data(path, self._get_local(path))
     checksum = self._build_checksum(path, data)
     local_checksum = self._get_checksum(path)
+    print(local_checksum)
+    print(checksum)
     if path in self._transaction:
       if local_checksum is None:
         fatal('Missing local checksum of an in-transaction object')
@@ -191,11 +193,12 @@ class BlockTree(object):
                     reverse=True)
       self._checksums = dict(key_list[:new_size])
 
-  def _get_checksum(self, path, checksum):
+  def _get_checksum(self, path):
     if path in self._transaction:
       return self._transaction[path]
     else:
-      return self._checksums[path] if path in self._checksums else None
+      return self._checksums[path][0] if path in self._checksums \
+        else None
 
   def commit(self):
     """Commit the outstanding transaction."""
@@ -205,15 +208,17 @@ class BlockTree(object):
     self.set('trans', tran_log, direct=True, dont_cache=True)
     for path in self._transaction:
       checksum = self._transaction[path]
-      data = self._decrypt_data(path, self._get_local(path))
-      local_checksum = self._build_checksum(path, data)
+      cryptdata = self._get_local(path)
+      plaindata = self._decrypt_data(path, cryptdata)
+      local_checksum = self._build_checksum(path, plaindata)
       if checksum != local_checksum:
         fatal('Local stored checksum is different to actual checksum'
               ' of in-transaction object')
-      remote_path = 'trans/' + path
-      self.s3.set(remote_path, data, metadata={'checksum': checksum})
+      s3_path = 'trans/' + path
+      self.s3.set(s3_path, cryptdata, metadata={'checksum': checksum})
     self.finalize_transaction(transaction_objects=self._transaction,
       committed_objects=self._transaction)
+    self._transaction = {}
 
   def finalize_transaction(self, transaction_objects = None,
                            committed_objects=None):
@@ -233,9 +238,6 @@ class BlockTree(object):
         remoteobj = self.s3.get('trans/' + path)
         if remoteobj:
           committed_objects.add(path)
-
-    # if committed objects are less in number than they should be,
-    # delete them and abort the transaction
 
     if len(committed_objects) == len(transaction_objects):
       for path in committed_objects:
