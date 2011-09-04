@@ -62,7 +62,7 @@ class BlockTree(object):
     """Calculate the checksum for given path anda data."""
     key = self.pass_key if path == 'config' else self.crypt_key
     hasher = hashlib.sha256(s3nbd._salt + key
-      + path.encode('utf8') + data)
+      + path.encode('utf8') + (b'' if data is None else data))
     return hasher.hexdigest()
 
   def _download(self, path, store_locally = True):
@@ -70,8 +70,12 @@ class BlockTree(object):
     plain value.
     """
     remoteobj = self.s3.get(path)
-    cryptdata = remoteobj.get_content() if remoteobj else ''
-    plaindata = self._decrypt_data(path, cryptdata)
+    cryptdata = remoteobj.get_content() if remoteobj else None
+    try:
+      plaindata = self._decrypt_data(path, cryptdata)
+    except:
+      fatal('Decryption of remote obj failed due to incorrect'
+            ' key/passphrase or corruption')
     checksum = self._build_checksum(path, plaindata)
     if remoteobj and checksum != remoteobj.metadata['checksum']:
       fatal("Remote object's data checksum does not match its metadata"
@@ -98,7 +102,7 @@ class BlockTree(object):
     if os.path.exists(filepath):
       return open(filepath, 'rb').read()
     else:
-      return ''
+      return None
 
   def _set_local(self, path, data):
     """Set the content of the object in the local cache."""
@@ -114,7 +118,7 @@ class BlockTree(object):
   def _decrypt_data(self, path, data):
     """Decrypt the given data."""
     if not data:
-      return ''
+      return None
     zipped, size = struct.unpack_from(b'!BQ', data, 0)
     data = data[struct.calcsize(b'!BQ'):]
     key = self.pass_key if path == 'config' else self.crypt_key
@@ -130,7 +134,7 @@ class BlockTree(object):
   def _encrypt_data(self, path, data):
     """Encrypt the given data."""
     if not data:
-      return ''
+      return None
     zipped = zlib.compress(data)
     if len(zipped) < len(data):
       storezip = 1
@@ -159,11 +163,16 @@ class BlockTree(object):
     if not cache == 'use':
       return self._download(path,
         store_locally=not cache == 'ignore')
-    data = self._decrypt_data(path, self._get_local(path))
-    checksum = self._build_checksum(path, data)
-    local_checksum = self._get_checksum(path)
-    print(local_checksum)
-    print(checksum)
+    try:
+      data = self._decrypt_data(path, self._get_local(path))
+    except:
+      data = None
+      checksum = None
+      local_checksum = None
+      self._del_checksum(path)
+    else:
+      checksum = self._build_checksum(path, data)
+      local_checksum = self._get_checksum(path)
     if path in self._transaction:
       if local_checksum is None:
         fatal('Missing local checksum of an in-transaction object')
@@ -175,7 +184,7 @@ class BlockTree(object):
       if remoteobj:
         remote_checksum = remoteobj.metadata['checksum']
       else:
-        remote_checksum = self._build_checksum(path, '')
+        remote_checksum = self._build_checksum(path, None)
       local_checksum = remote_checksum
       self._set_checksum(path, remote_checksum)
     if checksum != local_checksum:
@@ -192,6 +201,10 @@ class BlockTree(object):
       key_list.sort(cmp=lambda a, b: cmp(a[1][1], b[1][1]),
                     reverse=True)
       self._checksums = dict(key_list[:new_size])
+
+  def _del_checksum(self, path):
+    if path in self._checksums:
+      del self._checksums[path]
 
   def _get_checksum(self, path):
     if path in self._transaction:

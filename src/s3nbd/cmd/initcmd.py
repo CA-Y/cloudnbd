@@ -38,7 +38,7 @@ def main(args):
 
   try:
     s3.check_access()
-  except (s3nbd.s3.S3ResponseError, s3nbd.s3.S3NoSuchBucket) as e:
+  except (s3nbd.s3.S3AccessDenied, s3nbd.s3.S3NoSuchBucket) as e:
     fatal(e.args[0])
 
   pass_key = s3nbd.auth.get_pass_key(args.passphrase)
@@ -65,7 +65,7 @@ def main(args):
     'bs': s3nbd._default_bs,
     'bmp_bs': s3nbd._default_bmp_bs,
     'refcnt_bs': s3nbd._default_refcnt_bs,
-    'crypt_key': crypt_key,
+    'crypt_key': crypt_key.encode('hex'),
     'next_block': 0
   }
 
