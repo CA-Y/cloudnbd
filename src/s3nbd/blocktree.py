@@ -106,13 +106,14 @@ class BlockTree(object):
 
   def _set_local(self, path, data):
     """Set the content of the object in the local cache."""
-    if not data:
-      return
     filepath = self._get_local_path(path)
-    try:
-      os.makedirs(os.path.dirname(filepath))
-    except OSError:
-      pass
+    if not data:
+      if os.path.exists(filepath):
+        os.unlink(filepath)
+      return
+    dirname = os.path.dirname(filepath)
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
     open(filepath, 'wb').write(data)
 
   def _decrypt_data(self, path, data):
@@ -162,7 +163,7 @@ class BlockTree(object):
     """
     if not cache == 'use':
       return self._download(path,
-        store_locally=not cache == 'ignore')
+        store_locally=(cache != 'ignore'))
     try:
       data = self._decrypt_data(path, self._get_local(path))
     except:
@@ -222,7 +223,11 @@ class BlockTree(object):
     for path in self._transaction:
       checksum = self._transaction[path]
       cryptdata = self._get_local(path)
-      plaindata = self._decrypt_data(path, cryptdata)
+      try:
+        plaindata = self._decrypt_data(path, cryptdata)
+      except:
+        fatal('In-transaction object failed to decrypt due to possible'
+              ' local file system corruption or tampering')
       local_checksum = self._build_checksum(path, plaindata)
       if checksum != local_checksum:
         fatal('Local stored checksum is different to actual checksum'

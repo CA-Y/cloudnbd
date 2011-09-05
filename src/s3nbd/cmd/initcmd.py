@@ -51,11 +51,8 @@ def main(args):
 
   # ensure no volume with the same name exists
   
-  try:
-    blocktree.get('config', cache='ignore')
-  except:
-    pass
-  else:
+  tmpconfig = blocktree.get('config', cache='ignore')
+  if tmpconfig:
     fatal("volume '%s' in bucket '%s' already exists"
           % (args.volume, args.bucket))
 
