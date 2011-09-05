@@ -23,11 +23,13 @@ from __future__ import division
 import s3nbd
 import time
 
-class S3AccessDenied(Exception):
+class S3Error(Exception):
   pass
-class S3NoSuchBucket(Exception):
+class S3AccessDenied(S3Error):
   pass
-class S3AccessNotChecked(Exception):
+class S3NoSuchBucket(S3Error):
+  pass
+class S3AccessNotChecked(S3Error):
   pass
 
 class S3Object(object):

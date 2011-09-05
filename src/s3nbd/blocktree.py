@@ -29,8 +29,14 @@ import hashlib
 import shelve
 import glob
 import time
-from s3nbd.cmd import fatal, warning, info
 from Crypto.Cipher import AES
+
+class BTError(Exception):
+  pass
+class BTDecryptFailed(BTError):
+  pass
+class BTChecksumError(BTError):
+  pass
 
 class BlockTree(object):
   """Interface between S3/Local cache and the high level logic."""
@@ -74,12 +80,12 @@ class BlockTree(object):
     try:
       plaindata = self._decrypt_data(path, cryptdata)
     except:
-      fatal('Decryption of remote obj failed due to incorrect'
-            ' key/passphrase or corruption')
+      raise BTDecryptFailed('Decryption of remote obj failed due to'
+                            ' incorrect key/passphrase or corruption')
     checksum = self._build_checksum(path, plaindata)
     if remoteobj and checksum != remoteobj.metadata['checksum']:
-      fatal("Remote object's data checksum does not match its metadata"
-            " checksum")
+      raise BTChecksumError("Remote object's data checksum does not"
+                            " match its metadata checksum")
     if store_locally:
       if remoteobj:
         self._set_local(path, cryptdata)
@@ -176,9 +182,11 @@ class BlockTree(object):
       local_checksum = self._get_checksum(path)
     if path in self._transaction:
       if local_checksum is None:
-        fatal('Missing local checksum of an in-transaction object')
+        raise BTChecksumError('Missing local checksum of an'
+                              ' in-transaction object')
       if local_checksum != checksum:
-        fatal('Mismatching local checksum of an in-transaction obj')
+        raise BTChecksumError('Mismatching local checksum of an'
+                              ' in-transaction obj')
       return data
     if local_checksum is None:
       remoteobj = self.s3.get(path)
@@ -226,12 +234,14 @@ class BlockTree(object):
       try:
         plaindata = self._decrypt_data(path, cryptdata)
       except:
-        fatal('In-transaction object failed to decrypt due to possible'
-              ' local file system corruption or tampering')
+        raise BTDecryptFailed('In-transaction object failed to decrypt'
+                              ' due to possible local file system'
+                              ' corruption or tampering')
       local_checksum = self._build_checksum(path, plaindata)
       if checksum != local_checksum:
-        fatal('Local stored checksum is different to actual checksum'
-              ' of in-transaction object')
+        raise BTChecksumError('Local stored checksum is different to'
+                              ' actual checksum of in-transaction'
+                              ' object')
       s3_path = 'trans/' + path
       self.s3.set(s3_path, cryptdata, metadata={'checksum': checksum})
     self.finalize_transaction(transaction_objects=self._transaction,
