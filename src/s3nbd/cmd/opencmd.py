@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
 import s3nbd
-#from s3nbd import nbd
+from s3nbd import nbd
 from s3nbd.cmd import fatal, warning, info, get_all_creds
 
 class OpenCMD(object):
@@ -34,8 +34,44 @@ class OpenCMD(object):
       bucket=args.bucket,
       volume=args.volume
     )
-    self._cache = {}
-  
+    self.nbd = nbd.NBD(
+      host=args.bind_address,
+      port=args.port,
+      readcb=self.nbd_readcb,
+      writecb=self.nbd_writecb,
+      closecb=self.nbd_closecb
+    )
+    self.blocks = s3nbd.CacheDict()
+    self.blocks.backercb = self.blocks_backercb
+    self.blocks.max_entries = s3nbd._block_cache_size
+    self.blocks.drop_ratio = s3nbd._block_cache_reduction_ratio
+    self.refcnts = s3nbd.CacheDict()
+    self.refcnts.backercb = self.refcnt_backercb
+    self.refcnts.max_entries = s3nbd._refcnt_cache_size
+    self.refcnts.drop_ratio = s3nbd._refcnt_cache_reduction_ratio
+    self.bmp = s3nbd.CacheDict()
+    self.bmp.backercb = self.bmp_backercb
+    self.bmp.max_entries = s3nbd._bmp_cache_size
+    self.bmp.drop_ratio = s3nbd._bmp_cache_reduction_ratio
+
+  def blocks_backercb(self, key):
+    pass
+
+  def refcnt_backercb(self, key):
+    pass
+
+  def bmp_backercb(self, key):
+    pass
+
+  def nbd_readcb(self, off, length):
+    pass
+
+  def nbd_writecb(self, off, length):
+    pass
+
+  def nbd_closecb(self, off, length):
+    pass
+
   def run(self):
 
     # check our access to S3
@@ -75,11 +111,17 @@ class OpenCMD(object):
 
     self.root_config = s3nbd.deserialize_config(self.root_config)
 
-    # TODO
+    # set the reporting size for NBD
 
-    print(repr(self.config))
-    print(repr(self.root_config))
+    if self.args.size is not None:
+      self.nbd.size = self.args.size
+    else:
+      self.nbd.size = self.root_config['size']
 
+    # start NBD server
+
+    print('running server')
+    self.nbd.run()
 
 def main(args):
   get_all_creds(args)

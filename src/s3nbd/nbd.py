@@ -27,11 +27,10 @@ import socket
 class NBDError(Exception):
   pass
 
-class NBD(object):
+def _default_cb(*args):
+  pass
 
-  @classmethod
-  def _default_cb(*args):
-    pass
+class NBD(object):
 
   READ = 0
   WRITE = 1
@@ -41,9 +40,9 @@ class NBD(object):
                host = None,
                port = None,
                size = None,
-               readcb = NBD._default_cb,
-               writecb = NBD._default_cb,
-               closecb = NBD._default_cb):
+               readcb = _default_cb,
+               writecb = _default_cb,
+               closecb = _default_cb):
     self.host = host
     self.port = port
     self.size = size
@@ -60,7 +59,7 @@ class NBD(object):
     sock.send(b'NBDMAGIC\x00\x00\x42\x02\x81\x86\x12\x53' +
       struct.pack(b'>Q', self.size) + b'\0' * 128)
     while True:
-      header = self.receive(sock, struct.calcsize(b'>LL8sQL'))
+      header = self._receive(sock, struct.calcsize(b'>LL8sQL'))
       mag, request, han, off, dlen = struct.unpack(b'>LL8sQL', header)
       if mag != 0x25609513:
         raise NBDError("Invalid NBD magic sent by the client")
@@ -69,14 +68,14 @@ class NBD(object):
         v = self.readcb(off, dlen)
         sock.send(self.readcb(off, dlen))
       elif request == NBD.WRITE:
-        self.writecb(off, self.receive(sock, dlen))
+        self.writecb(off, self._receive(sock, dlen))
         sock.send(b'gDf\x98\0\0\0\0' + han)
       elif request == NBD.CLOSE:
         sock.close()
         self.closecb()
         return
 
-  def receive(self, sock, length):
+  def _receive(self, sock, length):
     buf = []
     while length > 0:
       chunk = sock.recv(length)
