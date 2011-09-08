@@ -53,23 +53,60 @@ class OpenCMD(object):
     self.bmp.backercb = self.bmp_backercb
     self.bmp.max_entries = s3nbd._bmp_cache_size
     self.bmp.drop_ratio = s3nbd._bmp_cache_reduction_ratio
+    self.dirty_blocks = set()
+    self.dirty_bmp = set()
+    self.dirty_refcnts = set()
+    self.dirty_config = False
 
-  def blocks_backercb(self, key):
-    pass
+  def blocks_backercb(self, cache, key):
+    block = key
+    data = self.blocktree.get('blocks/%d' % block)
+    data = data if data else self.empty_block
+    cache[key] = data
 
-  def refcnt_backercb(self, key):
-    pass
+  def refcnt_backercb(self, cache, key):
+    import json
+    block = key // self.config['refcnt_bs']
+    data = self.blocktree.get('refcnts/%d' % block)
+    data = json.loads(data) if data else self.empty_refcnt
+    for i, j in zip(xrange(self.config['refcnt_bs']), xrange(
+      self.config['refcnt_bs'] * block,
+      self.config['refcnt_bs'] * (block + 1)
+    ):
+      if j not in cache:
+        cache[j] = data[i]
 
-  def bmp_backercb(self, key):
-    pass
+  def bmp_backercb(self, cache, key):
+    import json
+    block = key // self.config['bmp_bs']
+    data = self.blocktree.get(
+      'roots/%s/bmp/%d' % (self.args.root, block)
+    )
+    data = json.loads(data) if data else self.empty_bmp
+    for i, j in zip(xrange(self.config['bmp_bs']), xrange(
+      self.config['bmp_bs'] * block,
+      self.config['bmp_bs'] * (block + 1)
+    ):
+      if j not in cache:
+        cache[j] = data[i]
 
   def nbd_readcb(self, off, length):
+    bs = self.config['bs']
+    block = off / bs
+    start = off % bs
+    end = (min(off + length, (block + 1) * bs) - 1) % bs + 1
+    data = []
+    while block * bs < off + length:
+      data.append(self.blocks[self.bmp[block]][start:end])
+      start = 0
+      end = (min(off + length, (block + 2) * bs) - 1) % bs + 1
+      block += 1
+    return ''.join(data)
+
+  def nbd_writecb(self, off, data):
     pass
 
-  def nbd_writecb(self, off, length):
-    pass
-
-  def nbd_closecb(self, off, length):
+  def nbd_closecb(self):
     pass
 
   def run(self):
@@ -96,9 +133,12 @@ class OpenCMD(object):
 
     # load the config and get the encryption key
 
-    self.config = s3nbd.deserialize_config(config)
+    self.config = s3nbd.deserialize(config)
     self.crypt_key = self.config['crypt_key'].decode('hex')
     self.blocktree.crypt_key = self.crypt_key
+    self.empty_block = b'\x00' * self.config['bs']
+    self.empty_bmp = [None] * self.config['bmp_bs']
+    self.empty_refcnt = [0] * self.config['refcnt_bs']
 
     # load the root config
 
@@ -109,7 +149,7 @@ class OpenCMD(object):
       cache='ignore'
     )
 
-    self.root_config = s3nbd.deserialize_config(self.root_config)
+    self.root_config = s3nbd.deserialize(self.root_config)
 
     # set the reporting size for NBD
 

@@ -39,20 +39,20 @@ _bmp_cache_reduction_ratio = 0.7
 
 _salt = b'EyAEAPVOvfqERT8hsJB5tgy0dB0x7Erp'
 
-class InvalidConfigFormat(Exception):
+class SerializeFailed(Exception):
   pass
 
-def deserialize_config(data):
+def deserialize(data):
   try:
     return json.loads(data)
   except ValueError:
-    raise InvaliConfigFormat('Failed to decode the config data')
+    raise SerializeFailed('Failed to decode the data')
 
-def serialize_config(data):
+def serialize(data):
   try:
     return json.dumps(data)
   except TypeError:
-    raise InvaliConfigFormat('Failed to encode the config data')
+    raise SerializeFailed('Failed to encode the data')
 
 class CacheDict(dict):
 

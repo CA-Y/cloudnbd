@@ -70,8 +70,8 @@ def main(args):
     'size': args.size
   }
 
-  volume_config = s3nbd.serialize_config(volume_config)
-  root_config = s3nbd.serialize_config(root_config)
+  volume_config = s3nbd.serialize(volume_config)
+  root_config = s3nbd.serialize(root_config)
 
   # to avoid using transactions here, we write the config for the root
   # first before the volume - that way only when the volume is written
