@@ -46,6 +46,7 @@ class BlockTree(object):
     self.s3 = s3
     self._transaction = {}
     self._checksums = {}
+    self.trans_size = 0
 
   def set(self, path, data, direct = False, dont_cache = False):
     """Set the value of an object locally and optionally remotely. If
@@ -59,10 +60,9 @@ class BlockTree(object):
     if direct:
       self.s3.set(path, cryptdata, metadata={'checksum': checksum})
     else:
-      self._append_transaction(path)
-
-  def _append_transaction(self, path):
-    self._transaction[path] = self._checksums[path][0]
+      if path not in self._transaction:
+        self.trans_size += len(data)
+      self._transaction[path] = self._checksums[path][0]
 
   def _build_checksum(self, path, data):
     """Calculate the checksum for given path anda data."""
@@ -247,6 +247,7 @@ class BlockTree(object):
     self.finalize_transaction(transaction_objects=self._transaction,
       committed_objects=self._transaction)
     self._transaction = {}
+    self.trans_size = 0
 
   def finalize_transaction(self, transaction_objects = None,
                            committed_objects=None):

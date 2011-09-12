@@ -36,6 +36,7 @@ _refcnt_cache_size = _default_refcnt_bs * (2 ** 7) # entries
 _refcnt_cache_reduction_ratio = 0.7
 _bmp_cache_size = _default_bmp_bs * (2 ** 7) # entries
 _bmp_cache_reduction_ratio = 0.7
+_max_commit_size = 2 ** 23
 
 _salt = b'EyAEAPVOvfqERT8hsJB5tgy0dB0x7Erp'
 
@@ -66,9 +67,16 @@ class CacheDict(dict):
       kargs['max_entries'] if 'max_entries' in kargs else None
     self.drop_ratio = \
       kargs['drop_ratio'] if 'drop_ratio' in kargs else 0.75
+    self.mask_dict = \
+      kargs['mask_dict'] if 'mask_dict' in kargs else None
     self._ts = {}
 
   def __getitem__(self, key):
+    if self.mask_dict is not None:
+      try:
+        return self.mask_dict[key]
+      except KeyError:
+        pass
     try:
       return super(CacheDict, self).__getitem__(key)
     except KeyError:
