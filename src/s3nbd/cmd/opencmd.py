@@ -76,7 +76,7 @@ class OpenCMD(object):
     for i, j in zip(xrange(self.config['refcnt_bs']), xrange(
       self.config['refcnt_bs'] * block,
       self.config['refcnt_bs'] * (block + 1)
-    ):
+    )):
       if j not in cache:
         cache[j] = data[i]
 
@@ -90,7 +90,7 @@ class OpenCMD(object):
     for i, j in zip(xrange(self.config['bmp_bs']), xrange(
       self.config['bmp_bs'] * block,
       self.config['bmp_bs'] * (block + 1)
-    ):
+    )):
       if j not in cache:
         cache[j] = data[i]
 
