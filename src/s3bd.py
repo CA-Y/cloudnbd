@@ -93,6 +93,12 @@ def main():
     action='store_true',
     help="COW all the changes to the volume"
   )
+  parser_a.add_argument(
+    '--threads', '-t',
+    type=int,
+    help="Number of write threads (default: %d)" \
+          % s3nbd._default_write_thread_count
+  )
 
   # resize arguments
   parser_a = subparsers.add_parser(

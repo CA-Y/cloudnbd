@@ -46,41 +46,23 @@ def main(args):
   blocktree = s3nbd.blocktree.BlockTree(
     pass_key=pass_key,
     crypt_key=crypt_key,
-    s3=s3
+    s3=s3,
+    threads=0
   )
 
   # ensure no volume with the same name exists
   
-  tmpconfig = blocktree.get('config', cache='ignore')
-  if tmpconfig:
+  config = blocktree.get('config')
+  if config:
     fatal("volume '%s' in bucket '%s' already exists"
           % (args.volume, args.bucket))
 
   # set up the config
 
-  volume_config = {
+  config = s3nbd.serialize({
     'bs': s3nbd._default_bs,
-    'bmp_bs': s3nbd._default_bmp_bs,
-    'refcnt_bs': s3nbd._default_refcnt_bs,
     'crypt_key': crypt_key.encode('hex'),
-    'next_block': 0
-  }
-
-  root_config = {
     'size': args.size
-  }
-
-  volume_config = s3nbd.serialize(volume_config)
-  root_config = s3nbd.serialize(root_config)
-
-  # to avoid using transactions here, we write the config for the root
-  # first before the volume - that way only when the volume is written
-  # we know that root config is also written
-  
-  blocktree.set(
-    'roots/%s/config' % args.root,
-    root_config,
-    direct=True,
-    dont_cache=True
-  )
-  blocktree.set('config', volume_config, direct=True, dont_cache=True)
+  })
+  blocktree.set('config', config, direct=True)
+  blocktree.close()

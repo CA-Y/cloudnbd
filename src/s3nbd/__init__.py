@@ -8,6 +8,7 @@ from __future__ import absolute_import
 from __future__ import division
 import json
 import time
+import threading
 
 _ver_major = 0
 _ver_minor = 1
@@ -19,26 +20,18 @@ __version__ = '%d.%d.%d%s' % _ver_tuple
 
 _prog_name = 's3bd'
 _print_ver = '%s %s' % (_prog_name, __version__)
-_local_cache_dir = '/var/cache/s3bd'
-_local_run_dir = '/var/run/s3bd'
 
 _default_bs = 2 ** 16
-_default_bmp_bs = 2 ** 10
-_default_refcnt_bs = 2 ** 10
-_default_root = 'cur'
 _default_bind = ''
 _default_port = 7323
-_checksum_cache_size = 10000 # entries
-_checksum_cache_reduction_ratio = 0.7
-_block_cache_size = 20 # entries
-_block_cache_reduction_ratio = 0.7
-_refcnt_cache_size = _default_refcnt_bs * (2 ** 7) # entries
-_refcnt_cache_reduction_ratio = 0.7
-_bmp_cache_size = _default_bmp_bs * (2 ** 7) # entries
-_bmp_cache_reduction_ratio = 0.7
-_max_commit_size = 2 ** 23
+_default_write_cache_size = 2 ** 23
+_default_total_cache_size = 2 ** 24
+_default_write_thread_count = 10
 
-_salt = b'EyAEAPVOvfqERT8hsJB5tgy0dB0x7Erp'
+_salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
+        b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
+        b'\xb9H\xcc\xe4\xf5\x9bs\xc0\xba\xab\xf0\x1b\xb4\xdb\xf6T' \
+        b'\xe9\xe2\xc1\xc3R]\xc0\xd1'
 
 class SerializeFailed(Exception):
   pass
@@ -47,53 +40,87 @@ def deserialize(data):
   try:
     return json.loads(data)
   except ValueError:
-    raise SerializeFailed('Failed to decode the data')
+    raise SerializeFailed('Deserialization failed')
 
 def serialize(data):
   try:
     return json.dumps(data)
   except TypeError:
-    raise SerializeFailed('Failed to encode the data')
+    raise SerializeFailed('Serialization failed')
 
-class CacheDict(dict):
+class QueueEmptyError(Exception):
+  pass
+
+class Cache(dict):
 
   def __init__(self, *args, **kargs):
-    super(CacheDict, self).__init__(*args, **kargs)
-    def _def_backer(obj, key):
-      pass
+    super(Cache, self).__init__(*args, **kargs)
+    def _def_backer(key):
+      return None
     self.backercb = \
       kargs['backercb'] if 'backercb' in kargs else _def_backer
-    self.max_entries = \
-      kargs['max_entries'] if 'max_entries' in kargs else None
-    self.drop_ratio = \
-      kargs['drop_ratio'] if 'drop_ratio' in kargs else 0.75
-    self.mask_dict = \
-      kargs['mask_dict'] if 'mask_dict' in kargs else None
+    self.queue_size = \
+      kargs['queue_size'] if 'queue_size' in kargs else None
+    self.total_size = \
+      kargs['total_size'] if 'total_size' in kargs else self.queue_size
     self._ts = {}
+    self._queue = []
+    self._lock = threading.RLock()
+    self._set_wait = threading.Condition(self._lock)
+    self._dequeue_wait = threading.Condition(self._lock)
+    self._wait_on_empty = True
 
   def __getitem__(self, key):
-    if self.mask_dict is not None:
-      try:
-        return self.mask_dict[key]
-      except KeyError:
-        pass
     try:
-      return super(CacheDict, self).__getitem__(key)
+      with self._lock:
+        return super(Cache, self).__getitem__(key)
     except KeyError:
-      self.backercb(self, key)
-      return super(CacheDict, self).__getitem__(key)
+      value = self.backercb(key)
+      with self._lock:
+        while len(self._queue) == self.total_size:
+          self._set_wait.wait()
+        self._ts[key] = time.time()
+        self._trim()
+      return value
+
+  def _trim(self):
+    """Trim the unqueued items down to the total size."""
+    with self._lock:
+      if len(self) > self.total_size:
+        unqueued = filter(lambda a: a not in self._queue, self.keys())
+        unqueued.sort(cmp=lambda a, b: cmp(self._ts[a], self._ts[b]))
+        unqueued = unqueued[0:len(self) - self.total_size]
+        for k in unqueued:
+          del self._ts[k]
+          del self[k]
 
   def __setitem__(self, key, value):
-    super(CacheDict, self).__setitem__(key, value)
-    self._ts[key] = time.time()
-    if self.max_entries and len(self) > self.max_entries:
-      new_size = int(self.max_entries * self.drop_ratio)
-      tss = self._ts.items()
-      tss.sort(cmp=lambda a, b: cmp(a[1], b[1]), reverse=True)
-      to_delete = tss[new_size:]
-      for k, t in to_delete:
-        del self._ts[k]
-        del self[k]
+    with self._lock:
+      while (key not in self._queue
+             and len(self._queue) == self.queue_size):
+        self._set_wait.wait()
+      super(Cache, self).__setitem__(key, value)
+      self._ts[key] = time.time()
+      if key in self._queue:
+        self._queue.remove(key)
+      self._queue.append(key)
+      self._trim()
+      self._dequeue_wait.notify()
+
+  def dequeue(self):
+    with self._lock:
+      while not self._queue and self._wait_on_empty:
+        self._dequeue_wait.wait()
+      if not self._queue and not self._wait_on_empty:
+        raise QueueEmptyError('No item in the queue')
+      key = self._queue.pop(0)
+      self._set_wait.notify()
+      return (key, super(Cache, self).__getitem__(key))
+
+  def set_wait_on_empty(self, v):
+    with self._lock:
+      self._wait_on_empty = v
+      self._dequeue_wait.notify_all()
 
 from s3nbd import cmd
 from s3nbd import auth

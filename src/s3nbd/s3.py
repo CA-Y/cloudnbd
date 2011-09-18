@@ -38,31 +38,27 @@ class S3Object(object):
   """
 
   def __init__(self, parent, s3key):
-    self._parent = parent
     self._s3key = s3key
     self.metadata = s3key.metadata
 
   def get_content(self):
     """Download the content of the this object."""
-    with self._parent._lock:
-      while True:
-        try:
-          return self._s3key.get_contents_as_string()
-        except: # XXX we might want to only catch certain errors here
-          pass 
-        time.sleep(1)
+    while True:
+      try:
+        return self._s3key.get_contents_as_string()
+      except: # XXX we might want to only catch certain errors here
+        pass 
+      time.sleep(1)
 
 class S3(object):
   """Amazon S3 web service interface"""
   def __init__(self, access_key = None, secret_key = None,
                bucket = None, volume = None):
-    import threading
     self.access_key = access_key
     self.secret_key = secret_key
     self.bucket = bucket
     self.volume = volume
     self._can_access = False
-    self._lock = threading.RLock()
 
   def check_access(self):
     """Determine whether this S3 instance with the given credentials is
@@ -81,19 +77,34 @@ class S3(object):
                              ' specified bucket')
     self._can_access = True
 
+  def clone(self):
+    new_s3 = S3()
+    new_s3.access_key = self.access_key
+    new_s3.secret_key = self.secret_key
+    new_s3.bucket = self.bucket
+    new_s3.volume = self.volume
+    new_s3._can_access = self._can_access
+    if new_s3._can_access:
+      from boto.s3.connection import S3Connection
+      from boto.s3.bucket import Bucket
+      new_s3._conn = S3Connection(new_s3.access_key, new_s3.secret_key)
+      new_s3._bucket = Bucket(
+        connection=new_s3._conn,
+        name=new_s3.bucket
+      )
+    return new_s3
+
   def get(self, path):
     """Get the value of the object given by the path."""
     if not self._can_access:
       raise S3AccessNotChecked('check_access() must be called first')
-    import time
-    with self._lock:
-      while True:
-        try:
-          key = self._bucket.get_key('%s/%s' % (self.volume, path))
-          break
-        except: # XXX maybe specify some exceptions here
-          pass
-        time.sleep(1)
+    while True:
+      try:
+        key = self._bucket.get_key('%s/%s' % (self.volume, path))
+        break
+      except: # XXX maybe specify some exceptions here
+        pass
+      time.sleep(1)
     if key:
       return S3Object(parent=self, s3key=key)
     else:
@@ -104,19 +115,20 @@ class S3(object):
     if not self._can_access:
       raise S3AccessNotChecked('check_access() must be called first')
     from boto.s3.connection import Key
-    with self._lock:
-      k = Key(self._bucket)
-      k.key = '%s/%s' % (self.volume, path)
-      k.metadata = metadata
-      while True:
-        try:
-          k.set_contents_from_string(content)
-          break
-        except Exception as e: # XXX maybe specify some exceptions here
-          raise e
-        time.sleep(1)
+    k = Key(self._bucket)
+    k.key = '%s/%s' % (self.volume, path)
+    k.metadata = metadata
+    while True:
+      try:
+        k.set_contents_from_string(content)
+        break
+      except Exception as e: # XXX maybe specify some exceptions here
+        raise e
+      time.sleep(1)
 
   def copy(self, old_path, new_path):
+    if not self._can_access:
+      raise S3AccessNotChecked('check_access() must be called first')
     while True:
       try:
         self._bucket.copy_key(
@@ -130,6 +142,8 @@ class S3(object):
       time.sleep(1)
 
   def delete(self, path):
+    if not self._can_access:
+      raise S3AccessNotChecked('check_access() must be called first')
     while True:
       try:
         self._bucket.delete_key('%s/%s' % (self.volume, path))

@@ -27,7 +27,7 @@ def get_pass_key(passphrase):
   password.
   """
   from hashlib import sha256
-  return sha256(s3nbd._salt + passphrase).digest()
+  return sha256(s3nbd._salt + passphrase.encode('utf8')).digest()
 
 def gen_crypt_key():
   """Generate a new cryptographic key from random source.
