@@ -98,8 +98,24 @@ def main():
     type=int,
     metavar='<count>',
     default=s3nbd._default_write_thread_count,
-    help="Number of write threads (default: %d)" \
+    help="number of write threads (default: %d)" \
           % s3nbd._default_write_thread_count
+  )
+  parser_a.add_argument(
+    '-r', '--read-ahead',
+    type=int,
+    metavar='<count>',
+    default=s3nbd._default_read_ahead_count,
+    help="number of blocks to read ahead (default: %d)" \
+          % s3nbd._default_read_ahead_count
+  )
+  parser_a.add_argument(
+    '-e', '--max-cache',
+    type=_storage_size,
+    metavar="<size>",
+    help="maximum amount of in-memory cache to use -"
+         " e.g. 100M which is 100 megabytes (default: %d)" \
+          % s3nbd._default_total_cache_size
   )
 
   # resize arguments

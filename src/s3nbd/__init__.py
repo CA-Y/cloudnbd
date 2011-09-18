@@ -24,9 +24,10 @@ _print_ver = '%s %s' % (_prog_name, __version__)
 _default_bs = 2 ** 16
 _default_bind = ''
 _default_port = 7323
-_default_write_cache_size = 2 ** 23
 _default_total_cache_size = 2 ** 24
+_write_to_total_cache_ratio = 0.5
 _default_write_thread_count = 10
+_default_read_ahead_count = 3
 
 _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
@@ -51,6 +52,32 @@ def serialize(data):
 class QueueEmptyError(Exception):
   pass
 
+class SyncQueue(object):
+  def __init__(self):
+    self._queue = []
+    self._lock = threading.RLock()
+    self._wait = threading.Condition(self._lock)
+    self._wait_on_empty = True
+
+  def push(self, v):
+    with self._lock:
+      if v not in self._queue:
+        self._queue.append(v)
+        self._wait.notify()
+
+  def pop(self):
+    with self._lock:
+      while not self._queue and self._wait_on_empty:
+        self._wait.wait()
+      if not self._queue and not self._wait_on_empty:
+        raise QueueEmptyError('Queue is empty')
+      v = self._queue.pop(0)
+      return v
+
+  def set_wait_on_empty(self, v):
+    with self._lock:
+      self._wait_on_empty = v
+
 class Cache(dict):
 
   def __init__(self, *args, **kargs):
@@ -70,19 +97,24 @@ class Cache(dict):
     self._dequeue_wait = threading.Condition(self._lock)
     self._wait_on_empty = True
 
+  def __contains__(self, key):
+    with self._lock:
+      return super(Cache, self).__contains__(key)
+
   def __getitem__(self, key):
     try:
       with self._lock:
         return super(Cache, self).__getitem__(key)
     except KeyError:
       value = self.backercb(key)
-      with self._lock:
-        while len(self._queue) == self.total_size:
-          self._set_wait.wait()
-        super(Cache, self).__setitem__(key, value)
-        self._ts[key] = time.time()
-        self._trim()
+      self.set_super_item(key, value)
       return value
+
+  def set_super_item(self, key, value):
+    with self._lock:
+      super(Cache, self).__setitem__(key, value)
+      self._ts[key] = time.time()
+      self._trim()
 
   def _trim(self):
     """Trim the unqueued items down to the total size."""
@@ -106,7 +138,7 @@ class Cache(dict):
         self._queue.remove(key)
       self._queue.append(key)
       self._trim()
-      self._dequeue_wait.notify()
+      self._dequeue_wait.notify_all()
 
   def dequeue(self):
     with self._lock:
@@ -115,7 +147,7 @@ class Cache(dict):
       if not self._queue and not self._wait_on_empty:
         raise QueueEmptyError('No item in the queue')
       key = self._queue.pop(0)
-      self._set_wait.notify()
+      self._set_wait.notify_all()
       return (key, super(Cache, self).__getitem__(key))
 
   def set_wait_on_empty(self, v):

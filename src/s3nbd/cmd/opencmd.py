@@ -114,6 +114,15 @@ class OpenCMD(object):
     self.crypt_key = self.config['crypt_key'].decode('hex')
     self.blocktree.crypt_key = self.crypt_key
 
+    # set cache sizes
+
+    total_cache = self.args.max_cache // self.cache['bs']
+    write_cache = (self.args.max_cache *
+      s3nbd._write_to_total_cache_ratio) // self.cache['bs']
+    if total_cache < 1: total_cache = 1
+    if write_cache < 1: write_cache = 1
+    self.blocktree.set_cache_limits(total_cache, write_cache)
+
     # set the reporting size for NBD
 
     if self.args.size is not None:

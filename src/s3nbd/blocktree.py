@@ -28,6 +28,7 @@ import zlib
 import hashlib
 import time
 import threading
+import re
 from Crypto.Cipher import AES
 
 class BTError(Exception):
@@ -51,18 +52,41 @@ def _writer_factory(blocktree):
       pass
   return writer
 
+def _reader_factory(blocktree):
+  s3 = blocktree.s3.clone()
+  def reader():
+    try:
+      while True:
+        k = blocktree._read_queue.pop()
+        value = _indep_get(blocktree, s3, k)
+        blocktree._cache.set_super_item(k, value)
+    except s3nbd.QueueEmptyError:
+      pass
+  return reader
+
+def _indep_get(blocktree, s3, k):
+  obj = s3.get(k)
+  if obj:
+    data = blocktree._decrypt_data(k, obj.get_content())
+    s3_checksum = obj.metadata['checksum']
+    calc_checksum = blocktree._build_checksum(k, data)
+    if s3_checksum != calc_checksum:
+      raise BTChecksumError(
+       "S3 and calculated checksums for object:%s don't match" % k
+      )
+    return data
+
 class BlockTree(object):
   """Interface between S3/Local cache and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, s3 = None,
-               threads = 1, cow = False):
+               threads = 1, read_ahead = 0, cow = False):
     self.threads = threads
+    self.read_ahead = read_ahead
     self.cow = cow
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.s3 = s3
     self._cache = s3nbd.Cache()
-    self._cache.queue_size = s3nbd._default_write_cache_size
-    self._cache.total_size = s3nbd._default_total_cache_size
     self._cache.backercb = self._cache_read_cb
     # initialize the writer threads
     self._writers = []
@@ -71,20 +95,27 @@ class BlockTree(object):
       writer.daemon = True
       self._writers.append(writer)
       writer.start()
+    # initialize the readahead threads
+    self._read_queue = s3nbd.SyncQueue()
+    self._readers = []
+    for i in xrange(read_ahead):
+      reader = threading.Thread(target=_reader_factory(self))
+      reader.daemon = True
+      self._readers.append(reader)
+      reader.start()
 
   def _cache_read_cb(self, k):
-    obj = self.s3.get(k)
-    if obj:
-      data = self._decrypt_data(k, obj.get_content())
-      s3_checksum = obj.metadata['checksum']
-      calc_checksum = self._build_checksum(k, data)
-      if s3_checksum != calc_checksum:
-        raise BTChecksumError(
-         "S3 and calculated checksums for object:%s don't match" % k
-        )
-      return data
-    else:
-      return None
+    m = re.match(r'^(.+?blocks/)(\d+)$', k)
+    if m:
+      s = int(m.group(2))
+      e = s + self._read_ahead
+      for b in xrange(s, e):
+        self._read_queue.push('%s%d' % (m.group(1), b))
+    return _indep_get(self, self.s3, k)
+
+  def set_cache_limits(self, total, write):
+    self._cache.total_size = total
+    self._cache.queue_size = write
 
   def set(self, path, data, direct = False):
     """Upload/queue an object on/to be uploaded to S3."""
