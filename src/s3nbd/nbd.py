@@ -64,7 +64,7 @@ class NBD(object):
       if mag != 0x25609513:
         raise NBDError("Invalid NBD magic sent by the client")
       if request == NBD.READ:
-        self.sock.send(b'gDf\x98\0\0\0\0' + han)
+        sock.send(b'gDf\x98\0\0\0\0' + han)
         v = self.readcb(off, dlen)
         sock.send(self.readcb(off, dlen))
       elif request == NBD.WRITE:

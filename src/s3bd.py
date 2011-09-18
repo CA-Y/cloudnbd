@@ -89,13 +89,15 @@ def main():
   _add_server_args(parser_a)
   _add_auth_args(parser_a)
   parser_a.add_argument(
-    '--cow', '-c',
+    '-c', '--cow',
     action='store_true',
     help="COW all the changes to the volume"
   )
   parser_a.add_argument(
-    '--threads', '-t',
+    '-t', '--threads',
     type=int,
+    metavar='<count>',
+    default=s3nbd._default_write_thread_count,
     help="Number of write threads (default: %d)" \
           % s3nbd._default_write_thread_count
   )
@@ -142,7 +144,7 @@ def _add_name_args(parser):
     'bucket',
     metavar='<bucket>',
     type=unicode,
-    help="S3 bucket name where volume to be stored"
+    help="S3 bucket name"
   )
   parser.add_argument(
     'volume',
@@ -173,7 +175,7 @@ def _add_size_arg(parser, as_arg = False):
     *(['size'] if as_arg else ['-s', '--size']),
     type=_storage_size,
     metavar="<size>",
-    help="default size of volume as reported to NBD client -"
+    help="size of volume as reported to NBD client -"
          " e.g. 100T which is 100 terabytes"
   )
 

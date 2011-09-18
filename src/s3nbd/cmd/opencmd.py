@@ -42,6 +42,13 @@ class OpenCMD(object):
       closecb=self.nbd_closecb
     )
 
+  def get_block(self, block):
+    data = self.blocktree.get('blocks/%d' % block)
+    return data if data else self.empty_block
+
+  def set_block(self, block, data):
+    self.blocktree.set('blocks/%d' % block, data)
+
   def nbd_readcb(self, off, length):
     bs = self.config['bs']
     block = off // bs
@@ -49,7 +56,7 @@ class OpenCMD(object):
     end = (min(off + length, (block + 1) * bs) - 1) % bs + 1
     data = []
     while block * bs < off + length:
-      data.append(self.blocks[self.bmp[block]][start:end])
+      data.append(self.get_block(block)[start:end])
       start = 0
       end = (min(off + length, (block + 2) * bs) - 1) % bs + 1
       block += 1
@@ -64,7 +71,7 @@ class OpenCMD(object):
     end = (min(off + length, (block + 1) * bs) - 1) % bs + 1
     while block * bs < off + length:
       if end - start < bs:
-        bd = self.blocks[self.bmp[block]]
+        bd = self.get_block(block)
         bd = bd[:start] + data[datap:end - start + datap] \
           + bd[end:]
         self.set_block(block, bd)
@@ -76,7 +83,7 @@ class OpenCMD(object):
       block += 1
 
   def nbd_closecb(self):
-    self.commit()
+    pass
 
   def run(self):
 
@@ -91,7 +98,7 @@ class OpenCMD(object):
     self.blocktree = s3nbd.blocktree.BlockTree(
       pass_key=self.pass_key,
       s3=self.s3,
-      threads=args.threads
+      threads=self.args.threads
     )
 
     # ensure there is a volume with the given name (config file exists)
@@ -99,7 +106,7 @@ class OpenCMD(object):
     config = self.blocktree.get('config')
     if not config:
       fatal("volume with name '%s' does not exist in bucket '%s'"
-            % (args.volume, args.bucket))
+            % (self.args.volume, self.args.bucket))
 
     # load the config and get the encryption key
 
@@ -114,10 +121,19 @@ class OpenCMD(object):
     else:
       self.nbd.size = self.config['size']
 
+    # empty block
+
+    self.empty_block = b'\x00' * self.config['bs']
+
     # start NBD server
 
     print('running server')
     self.nbd.run()
+
+    # wrap up
+
+    print('committing cache before closing')
+    self.blocktree.close()
 
 def main(args):
   get_all_creds(args)

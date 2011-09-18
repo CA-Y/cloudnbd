@@ -55,6 +55,7 @@ class BlockTree(object):
   """Interface between S3/Local cache and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, s3 = None,
                threads = 1, cow = False):
+    self.threads = threads
     self.cow = cow
     self.pass_key = pass_key
     self.crypt_key = crypt_key
@@ -87,6 +88,7 @@ class BlockTree(object):
 
   def set(self, path, data, direct = False):
     """Upload/queue an object on/to be uploaded to S3."""
+    print('set %s' % path)
     if direct:
       checksum = self._build_checksum(path, data)
       cryptdata = self._encrypt_data(path, data)
@@ -144,6 +146,7 @@ class BlockTree(object):
 
   def get(self, path):
     """Get the value of an object."""
+    print('get %s' % path)
     return self._cache[path]
 
   def close(self):
