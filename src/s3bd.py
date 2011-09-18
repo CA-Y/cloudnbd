@@ -112,6 +112,7 @@ def main():
   parser_a.add_argument(
     '-e', '--max-cache',
     type=_storage_size,
+    default=s3nbd._default_total_cache_size,
     metavar="<size>",
     help="maximum amount of in-memory cache to use -"
          " e.g. 100M which is 100 megabytes (default: %d)" \

@@ -22,6 +22,7 @@ from __future__ import absolute_import
 from __future__ import division
 import s3nbd
 import time
+import threading
 
 class S3Error(Exception):
   pass
@@ -31,6 +32,12 @@ class S3NoSuchBucket(S3Error):
   pass
 class S3AccessNotChecked(S3Error):
   pass
+
+_serializer_lock = threading.RLock()
+_serializer_wait = threading.Condition(_serializer_lock)
+_serializer_map = {}
+def _serialize(bucket, path):
+  pass # TODO
 
 class S3Object(object):
   """An S3 object with content and metadata, initially however

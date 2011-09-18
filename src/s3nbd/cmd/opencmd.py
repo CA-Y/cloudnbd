@@ -98,7 +98,8 @@ class OpenCMD(object):
     self.blocktree = s3nbd.blocktree.BlockTree(
       pass_key=self.pass_key,
       s3=self.s3,
-      threads=self.args.threads
+      threads=self.args.threads,
+      read_ahead=self.args.read_ahead
     )
 
     # ensure there is a volume with the given name (config file exists)
@@ -116,9 +117,9 @@ class OpenCMD(object):
 
     # set cache sizes
 
-    total_cache = self.args.max_cache // self.cache['bs']
+    total_cache = self.args.max_cache // self.config['bs']
     write_cache = (self.args.max_cache *
-      s3nbd._write_to_total_cache_ratio) // self.cache['bs']
+      s3nbd._write_to_total_cache_ratio) // self.config['bs']
     if total_cache < 1: total_cache = 1
     if write_cache < 1: write_cache = 1
     self.blocktree.set_cache_limits(total_cache, write_cache)

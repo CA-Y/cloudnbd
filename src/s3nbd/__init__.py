@@ -55,28 +55,29 @@ class QueueEmptyError(Exception):
 class SyncQueue(object):
   def __init__(self):
     self._queue = []
+    self._items = set()
     self._lock = threading.RLock()
     self._wait = threading.Condition(self._lock)
-    self._wait_on_empty = True
 
   def push(self, v):
     with self._lock:
-      if v not in self._queue:
+      if v not in self._items:
         self._queue.append(v)
         self._wait.notify()
 
   def pop(self):
     with self._lock:
-      while not self._queue and self._wait_on_empty:
+      while not self._queue:
         self._wait.wait()
-      if not self._queue and not self._wait_on_empty:
-        raise QueueEmptyError('Queue is empty')
       v = self._queue.pop(0)
       return v
 
-  def set_wait_on_empty(self, v):
+  def remove(self, k):
     with self._lock:
-      self._wait_on_empty = v
+      if k in self._items:
+        self._items.remove(k)
+      if k in self._queue:
+        self._queue.remove(k)
 
 class Cache(dict):
 
@@ -107,14 +108,17 @@ class Cache(dict):
         return super(Cache, self).__getitem__(key)
     except KeyError:
       value = self.backercb(key)
-      self.set_super_item(key, value)
-      return value
+      return self.set_super_item(key, value)
 
   def set_super_item(self, key, value):
     with self._lock:
-      super(Cache, self).__setitem__(key, value)
-      self._ts[key] = time.time()
-      self._trim()
+      if not super(Cache, self).__contains__(key):
+        super(Cache, self).__setitem__(key, value)
+        self._ts[key] = time.time()
+        self._trim()
+        return value
+      else:
+        return super(Cache, self).__getitem__(key)
 
   def _trim(self):
     """Trim the unqueued items down to the total size."""
