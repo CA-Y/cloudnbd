@@ -88,7 +88,6 @@ class BlockTree(object):
 
   def set(self, path, data, direct = False):
     """Upload/queue an object on/to be uploaded to S3."""
-    print('set %s' % path)
     if direct:
       checksum = self._build_checksum(path, data)
       cryptdata = self._encrypt_data(path, data)
@@ -146,7 +145,6 @@ class BlockTree(object):
 
   def get(self, path):
     """Get the value of an object."""
-    print('get %s' % path)
     return self._cache[path]
 
   def close(self):

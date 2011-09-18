@@ -79,6 +79,7 @@ class Cache(dict):
       with self._lock:
         while len(self._queue) == self.total_size:
           self._set_wait.wait()
+        super(Cache, self).__setitem__(key, value)
         self._ts[key] = time.time()
         self._trim()
       return value
