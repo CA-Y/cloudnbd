@@ -16,16 +16,16 @@ s3bd is an interface to S3 that acts as a normal block device. You can
 format it using your favorite filesystem or use it in a RAID
 configuration, etc. Below is the list of features:
 
-  * Full metadata integrity in case of network/power failure
-  * Writable COW (Copy-On-Write) snapshots with little overhead
-  * No limits on anything! (including total size, block size, number of
-    snapshots, etc.)
+  * Full integrity in case of network/power failure
   * Ability to resize a volume after creation
   * Password protection of all data using AES-256 encryption
-  * Persistent local caching of data for faster access
   * All data is stored in compressed format on S3 (unless the compressed
     size is larger than the plain data in which case the plain data is
     stored)
+  * COW (Copy-On-Write) capability that allows applying/discarding
+    changes to a volume since opening it - this allows atomic changes of
+    any magnitude
+  * No limits on anything!
 
 s3bd acts as an NBD (Network Block Device) server when run. To create an
 actual linux block device, you need nbd-client which is a part of NBD

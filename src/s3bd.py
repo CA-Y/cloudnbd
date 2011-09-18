@@ -46,12 +46,14 @@ def main():
     help='close an open volume'
   )
   _add_name_args(parser_a)
+  _add_close_cow_arg(parser_a)
 
   # closeall arguments
   parser_a = subparsers.add_parser(
     'closeall',
     help='close all open volumes'
   )
+  _add_close_cow_arg(parser_a)
 
   # info arguments
   parser_a = subparsers.add_parser(
@@ -60,12 +62,6 @@ def main():
   )
   _add_name_args(parser_a)
   _add_auth_args(parser_a)
-  _add_root_arg(parser_a)
-  parser_a.add_argument(
-    '--all',
-    action='store_true',
-    help="show info about all roots"
-  )
 
   # init arguments
   parser_a = subparsers.add_parser(
@@ -76,7 +72,6 @@ def main():
   _add_size_arg(parser_a, as_arg=True)
   _add_blocksize_arg(parser_a)
   _add_auth_args(parser_a)
-  _add_root_arg(parser_a)
   
   # list arguments
   parser_a = subparsers.add_parser(
@@ -93,7 +88,11 @@ def main():
   _add_size_arg(parser_a)
   _add_server_args(parser_a)
   _add_auth_args(parser_a)
-  _add_root_arg(parser_a)
+  parser_a.add_argument(
+    '--cow', '-c',
+    action='store_true',
+    help="COW all the changes to the volume"
+  )
 
   # resize arguments
   parser_a = subparsers.add_parser(
@@ -103,17 +102,6 @@ def main():
   _add_name_args(parser_a)
   _add_size_arg(parser_a, as_arg=True)
   _add_auth_args(parser_a)
-  _add_root_arg(parser_a)
-
-  # snapshot arguments
-  parser_a = subparsers.add_parser(
-    'snapshot',
-    help='create a snapshot of an existing root'
-  )
-  _add_name_args(parser_a)
-  _add_auth_args(parser_a)
-  _add_snapshot_arg(parser_a)
-  _add_root_arg(parser_a, is_base=True)
 
   # stat arguments
   parser_a = subparsers.add_parser(
@@ -157,24 +145,15 @@ def _add_name_args(parser):
     help="name of the volume"
   )
 
-def _add_root_arg(parser, is_base = False):
-  """Add root argument to the parser."""
+def _add_close_cow_arg(parser):
+  """Add close COW arguments to the parser."""
   parser.add_argument(
-    '-r', '--root',
-    metavar="<root>",
-    default=s3nbd._default_root,
-    help="name of the root to %s (default: %s)"
-         % ('base the new root on' if is_base else 'use',
-            s3nbd._default_root)
-  )
-
-def _add_snapshot_arg(parser):
-  """Add snapshot related arguments to the parser."""
-  parser.add_argument(
-    'new-root',
-    metavar='<new-root>',
-    type=unicode,
-    help="name of the new root"
+    '--cow', '-c',
+    metavar='<action>',
+    choices=['discard', 'apply'],
+    help="action to take for the outstanding COW data"
+         " - use 'apply' to merge the COW data to the volume"
+         ", or use 'discard' to drop all the changes"
   )
 
 def _add_size_arg(parser, as_arg = False):
