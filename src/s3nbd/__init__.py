@@ -92,6 +92,7 @@ class Cache(dict):
     self.total_size = \
       kargs['total_size'] if 'total_size' in kargs else self.queue_size
     self._ts = {}
+    self._pinned = set()
     self._queue = []
     self._lock = threading.RLock()
     self._set_wait = threading.Condition(self._lock)
@@ -146,13 +147,34 @@ class Cache(dict):
 
   def dequeue(self):
     with self._lock:
-      while not self._queue and self._wait_on_empty:
-        self._dequeue_wait.wait()
-      if not self._queue and not self._wait_on_empty:
-        raise QueueEmptyError('No item in the queue')
-      key = self._queue.pop(0)
-      self._set_wait.notify_all()
+      print('queue length: %d' % len(self._queue))
+      while True:
+        if not self._queue:
+          if self._wait_on_empty:
+            self._dequeue_wait.wait()
+            continue
+          else:
+            raise QueueEmptyError('No item in the queue')
+        for i, key in zip(xrange(len(self._queue)), self._queue):
+          if key in self._pinned:
+            print('uh oh - %s is pinned' % key)
+            continue
+          else:
+            self._queue.pop(i)
+            self._pinned.add(key)
+            self._set_wait.notify_all()
+            break
+        else:
+          self._dequeue_wait.wait()
+          continue
+        break
       return (key, super(Cache, self).__getitem__(key))
+
+  def unpin(self, key):
+    with self._lock:
+      if key in self._pinned:
+        self._pinned.remove(key)
+        self._dequeue_wait.notify_all()
 
   def set_wait_on_empty(self, v):
     with self._lock:

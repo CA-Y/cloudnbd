@@ -47,6 +47,7 @@ def _writer_factory(blocktree):
         checksum = blocktree._build_checksum(path, data)
         data = blocktree._encrypt_data(path, data)
         s3.set(path, data, metadata={'checksum': checksum})
+        blocktree._cache.unpin(path)
         del data
     except s3nbd.QueueEmptyError:
       pass
@@ -66,7 +67,6 @@ def _reader_factory(blocktree):
   return reader
 
 def _indep_get(blocktree, s3, k):
-  print('get: %s' % k)
   obj = s3.get(k)
   if obj:
     data = blocktree._decrypt_data(k, obj.get_content())
