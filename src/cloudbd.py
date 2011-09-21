@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# s3bd.py - Main executable of s3bd
+# cloudbd.py - Main executable of cloudbd
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -21,22 +21,22 @@ from __future__ import unicode_literals
 from __future__ import division
 import sys
 import argparse
-import s3nbd
+import cloudnbd
 
 def main():
 
   if any(map(lambda a: unicode(a) in ['-v', '--version'],
          sys.argv[1:])):
-    print(s3nbd._print_ver)
+    print(cloudnbd._print_ver)
     exit(0)
 
   parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description="NBD server with Amazon S3 as the backend"
+    description="NBD server with cloud storage as the backend"
   )
   _add_common_args(parser)
   subparsers = parser.add_subparsers(
-    help="s3bd commands",
+    help="cloudbd commands",
     dest="command"
   )
 
@@ -97,26 +97,26 @@ def main():
     '-t', '--threads',
     type=int,
     metavar='<count>',
-    default=s3nbd._default_write_thread_count,
+    default=cloudnbd._default_write_thread_count,
     help="number of write threads (default: %d)" \
-          % s3nbd._default_write_thread_count
+          % cloudnbd._default_write_thread_count
   )
   parser_a.add_argument(
     '-r', '--read-ahead',
     type=int,
     metavar='<count>',
-    default=s3nbd._default_read_ahead_count,
+    default=cloudnbd._default_read_ahead_count,
     help="number of blocks to read ahead (default: %d)" \
-          % s3nbd._default_read_ahead_count
+          % cloudnbd._default_read_ahead_count
   )
   parser_a.add_argument(
     '-e', '--max-cache',
     type=_storage_size,
-    default=s3nbd._default_total_cache_size,
+    default=cloudnbd._default_total_cache_size,
     metavar="<size>",
     help="maximum amount of in-memory cache to use -"
          " e.g. 100M which is 100 megabytes (default: %d)" \
-          % s3nbd._default_total_cache_size
+          % cloudnbd._default_total_cache_size
   )
 
   # resize arguments
@@ -137,8 +137,9 @@ def main():
 
   args = parser.parse_args()
 
-  exec ('import s3nbd.cmd.%scmd' % args.command) in locals(), globals()
-  exec ('s3nbd.cmd.%scmd.main(args)' % args.command) \
+  exec ('import cloudnbd.cmd.%scmd' % args.command) \
+    in locals(), globals()
+  exec ('cloudnbd.cmd.%scmd.main(args)' % args.command) \
     in locals(),globals()
 
 def _storage_size(value):
@@ -161,7 +162,7 @@ def _add_name_args(parser):
     'bucket',
     metavar='<bucket>',
     type=unicode,
-    help="S3 bucket name"
+    help="bucket name"
   )
   parser.add_argument(
     'volume',
@@ -202,8 +203,8 @@ def _add_blocksize_arg(parser):
     '-b', '--block-size',
     metavar="<size>",
     type=_storage_size,
-    help="block size of blocks as stored on S3 - e.g. 100T which is"
-         " 100 terabytes (default: %d)" % s3nbd._default_bs
+    help="block size of blocks as stored on the cloud - e.g. 100T"
+         " which is 100 terabytes (default: %d)" % cloudnbd._default_bs
   )
 
 def _add_server_args(parser):
@@ -211,7 +212,7 @@ def _add_server_args(parser):
   parser.add_argument(
     '-i', '--bind-address',
     metavar="<ip>",
-    default=s3nbd._default_bind,
+    default=cloudnbd._default_bind,
     type=unicode,
     help="the IP address the NBD server will be bound to"
          " (default: all interfaces)"
@@ -219,10 +220,10 @@ def _add_server_args(parser):
   parser.add_argument(
     '-p', '--port',
     metavar="<port>",
-    default=s3nbd._default_port,
+    default=cloudnbd._default_port,
     type=int,
     help="the port the NBD server will listen on"
-         " (default: %d)" % s3nbd._default_port
+         " (default: %d)" % cloudnbd._default_port
   )
 
 def _add_auth_args(parser):
@@ -231,19 +232,19 @@ def _add_auth_args(parser):
     '-a', '--access-key',
     metavar="<access-key>",
     type=unicode,
-    help="S3 access key"
+    help="access key"
   )
   parser.add_argument(
     '-k', '--secret-key',
     metavar="<secret-key>",
     type=unicode,
-    help="S3 secret key"
+    help="secret key"
   )
   parser.add_argument(
     '-y', '--passphrase',
     metavar="<passphrase>",
     type=unicode,
-    help="passphrase used to encrypt data on S3"
+    help="passphrase used to encrypt data on the cloud"
   )
 
 def _add_common_args(parser):

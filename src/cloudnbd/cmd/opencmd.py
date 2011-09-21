@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# opencmd.py - Serve the S3 through an NBD server
+# opencmd.py - Serve the cloud through an NBD server
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,15 +20,15 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import s3nbd
-from s3nbd import nbd
-from s3nbd.cmd import fatal, warning, info, get_all_creds
+import cloudnbd
+from cloudnbd import nbd
+from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 class OpenCMD(object):
-  """Serve the S3 through an NBD server"""
+  """Serve the cloud through an NBD server"""
   def __init__(self, args):
     self.args = args
-    self.s3 = s3nbd.s3.S3(
+    self.cloud = cloudnbd.cloud.Bridge(
       access_key=args.access_key,
       secret_key=args.secret_key,
       bucket=args.bucket,
@@ -87,17 +87,18 @@ class OpenCMD(object):
 
   def run(self):
 
-    # check our access to S3
+    # check our access to Bridge
 
     try:
-      self.s3.check_access()
-    except (s3nbd.s3.S3AccessDenied, s3nbd.s3.S3NoSuchBucket) as e:
+      self.cloud.check_access()
+    except (cloudnbd.cloud.BridgeAccessDenied,
+            cloudnbd.cloud.BridgeNoSuchBucket) as e:
       fatal(e.args[0])
 
-    self.pass_key = s3nbd.auth.get_pass_key(self.args.passphrase)
-    self.blocktree = s3nbd.blocktree.BlockTree(
+    self.pass_key = cloudnbd.auth.get_pass_key(self.args.passphrase)
+    self.blocktree = cloudnbd.blocktree.BlockTree(
       pass_key=self.pass_key,
-      s3=self.s3,
+      cloud=self.cloud,
       threads=self.args.threads,
       read_ahead=self.args.read_ahead
     )
@@ -111,7 +112,7 @@ class OpenCMD(object):
 
     # load the config and get the encryption key
 
-    self.config = s3nbd.deserialize(config)
+    self.config = cloudnbd.deserialize(config)
     self.crypt_key = self.config['crypt_key'].decode('hex')
     self.blocktree.crypt_key = self.crypt_key
 
@@ -119,7 +120,7 @@ class OpenCMD(object):
 
     total_cache = self.args.max_cache // self.config['bs']
     write_cache = (self.args.max_cache *
-      s3nbd._write_to_total_cache_ratio) // self.config['bs']
+      cloudnbd._write_to_total_cache_ratio) // self.config['bs']
     if total_cache < 1: total_cache = 1
     if write_cache < 1: write_cache = 1
     self.blocktree.set_cache_limits(total_cache, write_cache)

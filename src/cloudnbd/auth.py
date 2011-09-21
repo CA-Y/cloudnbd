@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# __init__.py - Utility functions for use with command modules
+# auth.py - Crypto/Authentication related facilities
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,33 +20,20 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import s3nbd
-import sys
-import getpass
+import cloudnbd
 
-def fatal(msg):
-  sys.stderr.write("%s:error: %s\n" % (s3nbd._prog_name, msg))
-  exit(1)
+def get_pass_key(passphrase):
+  """Create a one to one cryptographic key for the given plain text
+  password.
+  """
+  from hashlib import sha256
+  return sha256(cloudnbd._salt + passphrase.encode('utf8')).digest()
 
-def warning(msg):
-  sys.stderr.write("%s:warning: %s\n" % (s3nbd._prog_name, msg))
-
-def info(msg):
-  sys.stderr.write("%s:info: %s\n" % (s3nbd._prog_name, msg))
-
-def get_all_creds(args):
-  if not args.access_key:
-    args.access_key = raw_input('access key: ')
-  if not args.secret_key:
-    args.secret_key = getpass.getpass('secret key: ')
-  if not args.passphrase:
-    args.passphrase = getpass.getpass('passphrase: ')
-
-from s3nbd.cmd import initcmd
-from s3nbd.cmd import closecmd
-from s3nbd.cmd import closeallcmd
-from s3nbd.cmd import opencmd
-from s3nbd.cmd import listcmd
-from s3nbd.cmd import statcmd
-from s3nbd.cmd import infocmd
-from s3nbd.cmd import resizecmd
+def gen_crypt_key():
+  """Generate a new cryptographic key from random source.
+  """
+  import Crypto.Random
+  gen = Crypto.Random.new()
+  key = gen.read(32) # FIXME magic number
+  gen.close()
+  return key

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #
-# blocktree.py - Interface between S3/Local cache and the high level
-#                logic of S3BD
+# blocktree.py - Interface between cloud and high level logic
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -21,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import s3nbd
+import cloudnbd
 import os
 import struct
 import zlib
@@ -39,48 +38,48 @@ class BTChecksumError(BTError):
   pass
 
 def _writer_factory(blocktree):
-  s3 = blocktree.s3.clone()
+  cloud = blocktree.cloud.clone()
   def writer():
     try:
       while True:
         path, data = blocktree._cache.dequeue()
         checksum = blocktree._build_checksum(path, data)
         data = blocktree._encrypt_data(path, data)
-        s3.set(path, data, metadata={'checksum': checksum})
+        cloud.set(path, data, metadata={'checksum': checksum})
         blocktree._cache.unpin(path)
         del data
-    except s3nbd.QueueEmptyError:
+    except cloudnbd.QueueEmptyError:
       pass
   return writer
 
 def _reader_factory(blocktree):
-  s3 = blocktree.s3.clone()
+  cloud = blocktree.cloud.clone()
   def reader():
     try:
       while True:
         k = blocktree._read_queue.pop()
-        value = _indep_get(blocktree, s3, k)
+        value = _indep_get(blocktree, cloud, k)
         blocktree._cache.set_super_item(k, value)
         blocktree._read_queue.remove(k)
-    except s3nbd.QueueEmptyError:
+    except cloudnbd.QueueEmptyError:
       pass
   return reader
 
-def _indep_get(blocktree, s3, k):
-  obj = s3.get(k)
+def _indep_get(blocktree, cloud, k):
+  obj = cloud.get(k)
   if obj:
     data = blocktree._decrypt_data(k, obj.get_content())
-    s3_checksum = obj.metadata['checksum']
+    cloud_checksum = obj.metadata['checksum']
     calc_checksum = blocktree._build_checksum(k, data)
-    if s3_checksum != calc_checksum:
+    if cloud_checksum != calc_checksum:
       raise BTChecksumError(
-       "S3 and calculated checksums for object:%s don't match" % k
+       "remote and calculated checksums for object:%s don't match" % k
       )
     return data
 
 class BlockTree(object):
-  """Interface between S3/Local cache and the high level logic."""
-  def __init__(self, pass_key = None, crypt_key = None, s3 = None,
+  """Interface between cloud and the high level logic."""
+  def __init__(self, pass_key = None, crypt_key = None, cloud = None,
                threads = 1, read_ahead = 0, cow = False,
                total_cache = 1, write_cache = 1):
     self.threads = threads
@@ -88,8 +87,8 @@ class BlockTree(object):
     self.cow = cow
     self.pass_key = pass_key
     self.crypt_key = crypt_key
-    self.s3 = s3
-    self._cache = s3nbd.Cache()
+    self.cloud = cloud
+    self._cache = cloudnbd.Cache()
     self._cache.backercb = self._cache_read_cb
     self._cache.total_size = total_cache
     self._cache.queue_size = write_cache
@@ -101,7 +100,7 @@ class BlockTree(object):
       self._writers.append(writer)
       writer.start()
     # initialize the readahead threads
-    self._read_queue = s3nbd.SyncQueue()
+    self._read_queue = cloudnbd.SyncQueue()
     self._read_ahead = read_ahead
     self._readers = []
     for i in xrange(read_ahead):
@@ -119,25 +118,25 @@ class BlockTree(object):
         ra_k = '%s%d' % (m.group(1), b)
         if ra_k not in self._cache:
           self._read_queue.push(ra_k)
-    return _indep_get(self, self.s3, k)
+    return _indep_get(self, self.cloud, k)
 
   def set_cache_limits(self, total, write):
     self._cache.total_size = total
     self._cache.queue_size = write
 
   def set(self, path, data, direct = False):
-    """Upload/queue an object on/to be uploaded to S3."""
+    """Upload/queue an object on/to be uploaded to cloud."""
     if direct:
       checksum = self._build_checksum(path, data)
       cryptdata = self._encrypt_data(path, data)
-      self.s3.set(path, cryptdata, metadata={'checksum': checksum})
+      self.cloud.set(path, cryptdata, metadata={'checksum': checksum})
     else:
       self._cache[path] = data
 
   def _build_checksum(self, path, data):
     """Calculate the checksum for given path anda data."""
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.sha256(s3nbd._salt + key
+    hasher = hashlib.sha256(cloudnbd._salt + key
       + path.encode('utf8') + (b'' if data is None else data))
     return hasher.hexdigest()
 
@@ -148,7 +147,7 @@ class BlockTree(object):
     zipped, size = struct.unpack_from(b'!BQ', data, 0)
     data = data[struct.calcsize(b'!BQ'):]
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.md5(s3nbd._salt + path.encode('utf8'))
+    hasher = hashlib.md5(cloudnbd._salt + path.encode('utf8'))
     iv = hasher.digest()
     decryptor = AES.new(key, AES.MODE_CBC, iv)
     data = decryptor.decrypt(data)
@@ -170,7 +169,7 @@ class BlockTree(object):
     header = struct.pack(b'!BQ', storezip, len(data))
     data = data.ljust((len(data) // 32 + 1) * 32, b'\0')
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.md5(s3nbd._salt + path.encode('utf8'))
+    hasher = hashlib.md5(cloudnbd._salt + path.encode('utf8'))
     iv = hasher.digest()
     encryptor = AES.new(key, AES.MODE_CBC, iv)
     data = encryptor.encrypt(data)

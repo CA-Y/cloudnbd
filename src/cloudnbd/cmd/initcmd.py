@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# initcmd.py - Initialize a new S3 volume
+# initcmd.py - Initialize a new cloud volume
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,33 +20,34 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import s3nbd
-from s3nbd.cmd import fatal, warning, info, get_all_creds
+import cloudnbd
+from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
   get_all_creds(args)
 
-  s3 = s3nbd.s3.S3(
+  cloud = cloudnbd.cloud.bridge(
     access_key=args.access_key,
     secret_key=args.secret_key,
     bucket=args.bucket,
     volume=args.volume
   )
 
-  # check our access to S3
+  # check our access to bridge
 
   try:
-    s3.check_access()
-  except (s3nbd.s3.S3AccessDenied, s3nbd.s3.S3NoSuchBucket) as e:
+    cloud.check_access()
+  except (cloudnbd.cloud.BridgeAccessDenied,
+          cloudnbd.cloud.BridgeNoSuchBucket) as e:
     fatal(e.args[0])
 
-  pass_key = s3nbd.auth.get_pass_key(args.passphrase)
-  crypt_key = s3nbd.auth.gen_crypt_key()
-  blocktree = s3nbd.blocktree.BlockTree(
+  pass_key = cloudnbd.auth.get_pass_key(args.passphrase)
+  crypt_key = cloudnbd.auth.gen_crypt_key()
+  blocktree = cloudnbd.blocktree.BlockTree(
     pass_key=pass_key,
     crypt_key=crypt_key,
-    s3=s3,
+    cloud=cloud,
     threads=0
   )
 
@@ -59,8 +60,8 @@ def main(args):
 
   # set up the config
 
-  config = s3nbd.serialize({
-    'bs': s3nbd._default_bs,
+  config = cloudnbd.serialize({
+    'bs': cloudnbd._default_bs,
     'crypt_key': crypt_key.encode('hex'),
     'size': args.size
   })
