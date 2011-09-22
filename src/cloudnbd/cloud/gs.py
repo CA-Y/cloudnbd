@@ -23,6 +23,8 @@ from __future__ import division
 import cloudnbd
 import time
 import threading
+import urllib2
+import hashlib
 from cloudnbd.cloud import *
 
 class GSObject(CloudObject):
@@ -36,14 +38,17 @@ class GSObject(CloudObject):
 
   def get_content(self):
     """Download the content of the this object."""
-    raise NotImplementedError('abstract class')
+    while True:
+      try:
+        return self._nativeobj.get_contents_as_string()
+      except: # XXX we might want to only catch certain errors here
+        pass 
+      time.sleep(1)
 
 class GS(Bridge):
   """Web service interface"""
-  def __init__(self, access_key = None, secret_key = None,
-               bucket = None, volume = None):
+  def __init__(self, access_key = None, bucket = None, volume = None):
     self.access_key = access_key
-    self.secret_key = secret_key
     self.bucket = bucket
     self.volume = volume
     self._can_access = False
@@ -52,21 +57,100 @@ class GS(Bridge):
     """Determine whether this instance with the given credentials is
     able to access the storage.
     """
-    raise NotImplementedError('abstract class')
+    self._access_key, self._secret_key = self.access_key.split(':')
+    from boto.gs.connection import GSConnection
+    from boto.exception import S3ResponseError
+    try:
+      self._conn = GSConnection(self._access_key, self._secret_key)
+      self._bucket = self._conn.get_bucket(self.bucket)
+    except S3ResponseError as e:
+      if e.error_code == 'NoSuchBucket':
+        raise BridgeNoSuchBucket('Invalid bucket name given')
+      else: # e.error_code == 'AccessDenied':
+        raise BridgeAccessDenied('Invalid access key or secret for the'
+                                 ' specified bucket')
+    self._can_access = True
 
   def clone(self):
-    raise NotImplementedError('abstract class')
+    new_gs = GS()
+    new_gs.access_key = self.access_key
+    new_gs._access_key = self._access_key
+    new_gs._secret_key = self._secret_key
+    new_gs.bucket = self.bucket
+    new_gs.volume = self.volume
+    new_gs._can_access = self._can_access
+    if new_gs._can_access:
+      from boto.gs.connection import GSConnection
+      from boto.gs.bucket import Bucket
+      new_gs._conn = GSConnection(self._access_key, self._secret_key)
+      new_gs._bucket = Bucket(
+        connection=new_gs._conn,
+        name=new_gs.bucket
+      )
+    return new_gs
 
   def get(self, path):
     """Get the value of the object given by the path."""
-    raise NotImplementedError('abstract class')
+    if not self._can_access:
+      raise BridgeAccessNotChecked(
+        'check_access() must be called first'
+      )
+    while True:
+      try:
+        key = self._bucket.get_key('%s/%s' % (self.volume, path))
+        break
+      except: # XXX maybe specify some exceptions here
+        pass
+      time.sleep(1)
+    if key:
+      return GSObject(parent=self, nativeobj=key)
+    else:
+      return None
 
   def set(self, path, content, metadata={}):
     """Set the value of the object given by the path."""
-    raise NotImplementedError('abstract class')
+    if not self._can_access:
+      raise BridgeAccessNotChecked(
+        'check_access() must be called first'
+      )
+    from boto.gs.connection import Key
+    k = Key(self._bucket)
+    k.key = '%s/%s' % (self.volume, path)
+    k.metadata = metadata
+    while True:
+      try:
+        k.set_contents_from_string(content)
+        break
+      except Exception as e: # XXX maybe specify some exceptions here
+        raise e
+      time.sleep(1)
 
   def copy(self, src, target):
-    raise NotImplementedError('abstract class')
+    if not self._can_access:
+      raise BridgeAccessNotChecked(
+        'check_access() must be called first'
+      )
+    while True:
+      try:
+        self._bucket.copy_key(
+          '%s/%s' % (self.volume, new_path),
+          self.bucket,
+          '%s/%s' % (self.volume, old_path)
+        )
+        break
+      except:
+        pass
+      time.sleep(1)
 
   def delete(self, path):
-    raise NotImplementedError('abstract class')
+    if not self._can_access:
+      raise BridgeAccessNotChecked(
+        'check_access() must be called first'
+      )
+    while True:
+      try:
+        self._bucket.delete_key('%s/%s' % (self.volume, path))
+        break
+      except:
+        pass
+      time.sleep(1)

@@ -46,20 +46,21 @@ def main():
     help='close an open volume'
   )
   _add_name_args(parser_a)
-  _add_close_cow_arg(parser_a)
+  _add_close_cow_args(parser_a)
 
   # closeall arguments
   parser_a = subparsers.add_parser(
     'closeall',
     help='close all open volumes'
   )
-  _add_close_cow_arg(parser_a)
+  _add_close_cow_args(parser_a)
 
   # info arguments
   parser_a = subparsers.add_parser(
     'info',
     help='show volume details'
   )
+  _add_backend_args(parser_a)
   _add_name_args(parser_a)
   _add_auth_args(parser_a)
 
@@ -68,9 +69,10 @@ def main():
     'init',
     help='initialize a new volume'
   )
+  _add_backend_args(parser_a)
   _add_name_args(parser_a)
-  _add_size_arg(parser_a, as_arg=True)
-  _add_blocksize_arg(parser_a)
+  _add_size_args(parser_a, as_arg=True)
+  _add_blocksize_args(parser_a)
   _add_auth_args(parser_a)
   
   # list arguments
@@ -84,8 +86,9 @@ def main():
     'open',
     help='open an existing volume'
   )
+  _add_backend_args(parser_a)
   _add_name_args(parser_a)
-  _add_size_arg(parser_a)
+  _add_size_args(parser_a)
   _add_server_args(parser_a)
   _add_auth_args(parser_a)
   parser_a.add_argument(
@@ -124,8 +127,9 @@ def main():
     'resize',
     help='set the default size for a volume'
   )
+  _add_backend_args(parser_a)
   _add_name_args(parser_a)
-  _add_size_arg(parser_a, as_arg=True)
+  _add_size_args(parser_a, as_arg=True)
   _add_auth_args(parser_a)
 
   # stat arguments
@@ -171,7 +175,7 @@ def _add_name_args(parser):
     help="name of the volume"
   )
 
-def _add_close_cow_arg(parser):
+def _add_close_cow_args(parser):
   """Add close COW arguments to the parser."""
   parser.add_argument(
     '--cow', '-c',
@@ -182,7 +186,7 @@ def _add_close_cow_arg(parser):
          ", or use 'discard' to drop all the changes"
   )
 
-def _add_size_arg(parser, as_arg = False):
+def _add_size_args(parser, as_arg = False):
   """Add size argument to the parser.
 
   Parameters:
@@ -197,7 +201,7 @@ def _add_size_arg(parser, as_arg = False):
          " e.g. 100T which is 100 terabytes"
   )
 
-def _add_blocksize_arg(parser):
+def _add_blocksize_args(parser):
   """Add block size argument to the parser."""
   parser.add_argument(
     '-b', '--block-size',
@@ -235,12 +239,6 @@ def _add_auth_args(parser):
     help="access key"
   )
   parser.add_argument(
-    '-k', '--secret-key',
-    metavar="<secret-key>",
-    type=unicode,
-    help="secret key"
-  )
-  parser.add_argument(
     '-y', '--passphrase',
     metavar="<passphrase>",
     type=unicode,
@@ -253,6 +251,14 @@ def _add_common_args(parser):
     '-v', '--version',
     action='store_true',
     help="show the program version and exit"
+  )
+
+def _add_backend_args(parser):
+  parser.add_argument(
+    'backend',
+    choices=cloudnbd.cloud.backends,
+    type=unicode,
+    help="storage backend to use"
   )
 
 if __name__ == '__main__':
