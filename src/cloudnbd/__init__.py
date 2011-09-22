@@ -143,31 +143,40 @@ class Cache(dict):
         self._queue.remove(key)
       self._queue.append(key)
       self._trim()
-      self._dequeue_wait.notify_all()
+      if len(self._queue) == self.queue_size:
+        self._dequeue_wait.notify_all()
+
+  def _pop_next_unpinned_key(self):
+    for i, key in zip(xrange(len(self._queue)), self._queue):
+      if key not in self._pinned:
+        self._queue.pop(i)
+        self._pinned.add(key)
+        self._set_wait.notify_all()
+        return key
+    return None
 
   def dequeue(self):
     with self._lock:
-      print('queue length: %d' % len(self._queue))
       while True:
-        if not self._queue:
-          if self._wait_on_empty:
+        if self._wait_on_empty:
+          if len(self._queue) < self.queue_size:
             self._dequeue_wait.wait()
             continue
           else:
-            raise QueueEmptyError('No item in the queue')
-        for i, key in zip(xrange(len(self._queue)), self._queue):
-          if key in self._pinned:
-            print('uh oh - %s is pinned' % key)
-            continue
-          else:
-            self._queue.pop(i)
-            self._pinned.add(key)
-            self._set_wait.notify_all()
+            key = self._pop_next_unpinned_key()
+            if key is None:
+              self._dequeue_wait.wait()
+              continue
             break
         else:
-          self._dequeue_wait.wait()
-          continue
-        break
+          if self._queue:
+            key = self._pop_next_unpinned_key()
+            if key is None:
+              self._dequeue_wait.wait()
+              continue
+            break
+          else:
+            raise QueueEmptyError('No item in the queue')
       return (key, super(Cache, self).__getitem__(key))
 
   def unpin(self, key):

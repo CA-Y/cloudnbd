@@ -100,24 +100,24 @@ class BlockTree(object):
       self._writers.append(writer)
       writer.start()
     # initialize the readahead threads
-    self._read_queue = cloudnbd.SyncQueue()
-    self._read_ahead = read_ahead
-    self._readers = []
-    for i in xrange(read_ahead):
-      reader = threading.Thread(target=_reader_factory(self))
-      reader.daemon = True
-      self._readers.append(reader)
-      reader.start()
+    # self._read_queue = cloudnbd.SyncQueue()
+    # self._read_ahead = read_ahead
+    # self._readers = []
+    # for i in xrange(read_ahead):
+    #   reader = threading.Thread(target=_reader_factory(self))
+    #   reader.daemon = True
+    #   self._readers.append(reader)
+    #   reader.start()
 
   def _cache_read_cb(self, k):
-    m = re.match(r'^(.*?blocks/)(\d+)$', k)
-    if m:
-      s = int(m.group(2)) + 1
-      e = s + self._read_ahead + 1
-      for b in xrange(s, e):
-        ra_k = '%s%d' % (m.group(1), b)
-        if ra_k not in self._cache:
-          self._read_queue.push(ra_k)
+    # m = re.match(r'^(.*?blocks/)(\d+)$', k)
+    # if m:
+    #   s = int(m.group(2)) + 1
+    #   e = s + self._read_ahead + 1
+    #   for b in xrange(s, e):
+    #     ra_k = '%s%d' % (m.group(1), b)
+    #     if ra_k not in self._cache:
+    #       self._read_queue.push(ra_k)
     return _indep_get(self, self.cloud, k)
 
   def set_cache_limits(self, total, write):
