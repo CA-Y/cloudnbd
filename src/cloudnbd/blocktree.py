@@ -81,17 +81,19 @@ class BlockTree(object):
   """Interface between cloud and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, cloud = None,
                threads = 1, read_ahead = 0, cow = False,
-               total_cache = 1, write_cache = 1):
+               total_cache = 1, queue_ratio  = 1, flush_ratio = 1):
     self.threads = threads
     self.read_ahead = read_ahead
     self.cow = cow
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.cloud = cloud
-    self._cache = cloudnbd.Cache()
-    self._cache.backercb = self._cache_read_cb
-    self._cache.total_size = total_cache
-    self._cache.queue_size = write_cache
+    self._cache = cloudnbd.Cache(
+      backercb=self._cache_read_cb,
+      total_size=total_cache,
+      queue_ratio=queue_ratio,
+      flush_ratio=flush_ratio
+    )
     # initialize the writer threads
     self._writers = []
     for i in xrange(threads):

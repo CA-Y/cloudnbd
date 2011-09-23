@@ -35,6 +35,7 @@ class GSObject(CloudObject):
   def __init__(self, parent, nativeobj):
     self._nativeobj = nativeobj
     self._parent = parent
+    self.metadata = nativeobj.metadata
 
   def get_content(self):
     """Download the content of the this object."""
@@ -113,7 +114,7 @@ class GS(Bridge):
       raise BridgeAccessNotChecked(
         'check_access() must be called first'
       )
-    from boto.gs.connection import Key
+    from boto.gs.key import Key
     k = Key(self._bucket)
     k.key = '%s/%s' % (self.volume, path)
     k.metadata = metadata

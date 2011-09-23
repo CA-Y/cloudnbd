@@ -28,9 +28,8 @@ class OpenCMD(object):
   """Serve the cloud through an NBD server"""
   def __init__(self, args):
     self.args = args
-    self.cloud = cloudnbd.cloud.Bridge(
+    self.cloud = cloudnbd.cloud.backends[args.backend](
       access_key=args.access_key,
-      secret_key=args.secret_key,
       bucket=args.bucket,
       volume=args.volume
     )
@@ -100,7 +99,10 @@ class OpenCMD(object):
       pass_key=self.pass_key,
       cloud=self.cloud,
       threads=self.args.threads,
-      read_ahead=self.args.read_ahead
+      read_ahead=self.args.read_ahead,
+      total_cache=cloudnbd._default_total_cache_size,
+      queue_ratio=cloudnbd._write_to_total_cache_ratio,
+      flush_ratio=cloudnbd._write_queue_to_flush_ratio
     )
 
     # ensure there is a volume with the given name (config file exists)

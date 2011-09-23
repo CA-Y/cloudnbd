@@ -26,6 +26,7 @@ _default_bind = ''
 _default_port = 7323
 _default_total_cache_size = 2 ** 24
 _write_to_total_cache_ratio = 0.5
+_write_queue_to_flush_ratio = 0.7
 _default_write_thread_count = 10
 _default_read_ahead_count = 3
 
@@ -85,12 +86,16 @@ class Cache(dict):
     super(Cache, self).__init__(*args, **kargs)
     def _def_backer(key):
       return None
-    self.backercb = \
+    self._backercb = \
       kargs['backercb'] if 'backercb' in kargs else _def_backer
-    self.queue_size = \
-      kargs['queue_size'] if 'queue_size' in kargs else None
-    self.total_size = \
-      kargs['total_size'] if 'total_size' in kargs else self.queue_size
+    self._queue_ratio = \
+      kargs['queue_ratio'] if 'queue_ratio' in kargs else 0.5
+    self._total_size = \
+      kargs['total_size'] if 'total_size' in kargs else 2 ** 6
+    self._flush_ratio = \
+      kargs['flush_ratio'] if 'flush_ratio' in kargs else 0.5
+    self._queue_size = int(self._queue_ratio * self._total_size)
+    self._flush_size = int(self._flush_ratio * self._queue_size)
     self._ts = {}
     self._pinned = set()
     self._queue = []
@@ -108,7 +113,7 @@ class Cache(dict):
       with self._lock:
         return super(Cache, self).__getitem__(key)
     except KeyError:
-      value = self.backercb(key)
+      value = self._backercb(key)
       return self.set_super_item(key, value)
 
   def set_super_item(self, key, value):
@@ -124,10 +129,10 @@ class Cache(dict):
   def _trim(self):
     """Trim the unqueued items down to the total size."""
     with self._lock:
-      if len(self) > self.total_size:
+      if len(self) > self._total_size:
         unqueued = filter(lambda a: a not in self._queue, self.keys())
         unqueued.sort(cmp=lambda a, b: cmp(self._ts[a], self._ts[b]))
-        unqueued = unqueued[0:len(self) - self.total_size]
+        unqueued = unqueued[0:len(self) - self._total_size]
         for k in unqueued:
           del self._ts[k]
           del self[k]
@@ -135,7 +140,7 @@ class Cache(dict):
   def __setitem__(self, key, value):
     with self._lock:
       while (key not in self._queue
-             and len(self._queue) == self.queue_size):
+             and len(self._queue) == self._queue_size):
         self._set_wait.wait()
       super(Cache, self).__setitem__(key, value)
       self._ts[key] = time.time()
@@ -143,7 +148,7 @@ class Cache(dict):
         self._queue.remove(key)
       self._queue.append(key)
       self._trim()
-      if len(self._queue) == self.queue_size:
+      if len(self._queue) == self._queue_size:
         self._dequeue_wait.notify_all()
 
   def _pop_next_unpinned_key(self):
@@ -159,7 +164,7 @@ class Cache(dict):
     with self._lock:
       while True:
         if self._wait_on_empty:
-          if len(self._queue) < self.queue_size:
+          if len(self._queue) < self._flush_size:
             self._dequeue_wait.wait()
             continue
           else:
