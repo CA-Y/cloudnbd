@@ -44,8 +44,13 @@ def _writer_factory(blocktree):
       while True:
         path, data = blocktree._cache.dequeue()
         checksum = blocktree._build_checksum(path, data)
+        plain_data_len = len(data)
         data = blocktree._encrypt_data(path, data)
         cloud.set(path, data, metadata={'checksum': checksum})
+        with blocktree._stats_lock:
+          blocktree._stats['sent_count'] += 1
+          blocktree._stats['data_sent'] += plain_data_len
+          blocktree._stats['wire_sent'] += len(data)
         blocktree._cache.unpin(path)
         del data
     except cloudnbd.QueueEmptyError:
@@ -68,7 +73,13 @@ def _reader_factory(blocktree):
 def _indep_get(blocktree, cloud, k):
   obj = cloud.get(k)
   if obj:
-    data = blocktree._decrypt_data(k, obj.get_content())
+    data = obj.get_content()
+    wire_data_len = len(data)
+    data = blocktree._decrypt_data(k, data)
+    with blocktree._stats_lock:
+      blocktree._stats['recv_count'] += 1
+      blocktree._stats['data_recv'] += len(data)
+      blocktree._stats['wire_recv'] += wire_data_len
     cloud_checksum = obj.metadata['checksum']
     calc_checksum = blocktree._build_checksum(k, data)
     if cloud_checksum != calc_checksum:
@@ -81,6 +92,9 @@ class BlockTree(object):
   """Interface between cloud and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, cloud = None,
                threads = 1):
+    self._stats_lock = threading.RLock()
+    self._stats = {'recv_count': 0, 'data_recv': 0, 'wire_recv': 0,
+                   'sent_count': 0, 'data_sent': 0, 'wire_sent': 0}
     self.read_ahead = 0
     self.threads = threads
     self.cow = False
@@ -104,6 +118,12 @@ class BlockTree(object):
     #   reader.daemon = True
     #   self._readers.append(reader)
     #   reader.start()
+
+  def get_stats(self):
+    with self._stats_lock:
+      comb_stats = dict(self._stats)
+      comb_stats.update(self._cache.get_stats())
+      return comb_stats
 
   def _cache_read_cb(self, k):
     # m = re.match(r'^(.*?blocks/)(\d+)$', k)

@@ -22,6 +22,9 @@ from __future__ import absolute_import
 from __future__ import division
 import cloudnbd
 import os
+import stat
+import threading
+import time
 from cloudnbd import nbd
 from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
@@ -163,12 +166,13 @@ class OpenCMD(object):
     def create_stat():
       if os.path.exists(self._stat_path):
         os.unlink(self._stat_path)
-      os.mknod(self._stat_path, mode= 0600 | os.S_IFIFO)
+      os.mknod(self._stat_path, 0644 | stat.S_IFIFO)
       self._serve_stat = True
     def create_pid():
       open(self._pid_path, 'w').write(str(os.getpid()))
     def delete_file(path):
       os.unlink(path)
+    create_stat()
     self._run_silent(create_stat)
     self._run_silent(create_pid)
 
@@ -181,15 +185,49 @@ class OpenCMD(object):
   def _stat_server_worker(self):
     while True:
       f = open(self._stat_path, 'w')
-      f.write('fuckerrrr')
+      rstats = self.blocktree.get_stats()
+      stats = {}
+      stats['cache-used'] = self._size_to_human(
+        rstats['cache_size'] * self.config['bs']
+      )
+      stats['cache-dirty'] = self._size_to_human(
+        rstats['queue_size'] * self.config['bs']
+      )
+      stats['cache-limit'] = self._size_to_human(self.args.max_cache)
+      stats['sent-reqs'] = str(rstats['sent_count'])
+      stats['recv-reqs'] = str(rstats['recv_count'])
+      stats['sent-data'] = self._size_to_human(rstats['data_sent'])
+      stats['recv-data'] = self._size_to_human(rstats['data_recv'])
+      stats['sent-actual'] = self._size_to_human(rstats['wire_sent'])
+      stats['recv-actual'] = self._size_to_human(rstats['wire_recv'])
+      stats = stats.items()
+      stats.sort(cmp=lambda a, b: cmp(a[0], b[0]))
+      f.write(''.join(map(lambda a: '%s: %s\n' % a, stats)))
+      f.flush()
       f.close()
+      time.sleep(0.5)
+
+  def _size_to_human(self, size):
+    if size < 1100:
+      return '%d B' % size
+    elif size < 1100000:
+      return '%.1f KB' % (size / 1000)
+    elif size < 1100000000:
+      return '%.1f MB' % (size / 1000000)
+    elif size < 1100000000000:
+      return '%.1f GB' % (size / 1000000000)
+    elif size < 1100000000000000:
+      return '%.1f TB' % (size / 1000000000000)
+    else:
+      return '%.1f PB' % (size / 1000000000000000)
 
   def _run(self):
 
       # start a thread for stat
 
       if self._serve_stat:
-        self._stat_thread = Thread(target=self._stat_server_worker)
+        self._stat_thread = \
+          threading.Thread(target=self._stat_server_worker)
         self._stat_thread.daemon = True
         self._stat_thread.start()
 
