@@ -184,27 +184,30 @@ class OpenCMD(object):
 
   def _stat_server_worker(self):
     while True:
-      f = open(self._stat_path, 'w')
-      rstats = self.blocktree.get_stats()
-      stats = {}
-      stats['cache-used'] = self._size_to_human(
-        rstats['cache_size'] * self.config['bs']
-      )
-      stats['cache-dirty'] = self._size_to_human(
-        rstats['queue_size'] * self.config['bs']
-      )
-      stats['cache-limit'] = self._size_to_human(self.args.max_cache)
-      stats['sent-reqs'] = str(rstats['sent_count'])
-      stats['recv-reqs'] = str(rstats['recv_count'])
-      stats['sent-data'] = self._size_to_human(rstats['data_sent'])
-      stats['recv-data'] = self._size_to_human(rstats['data_recv'])
-      stats['sent-actual'] = self._size_to_human(rstats['wire_sent'])
-      stats['recv-actual'] = self._size_to_human(rstats['wire_recv'])
-      stats = stats.items()
-      stats.sort(cmp=lambda a, b: cmp(a[0], b[0]))
-      f.write(''.join(map(lambda a: '%s: %s\n' % a, stats)))
-      f.flush()
-      f.close()
+      try:
+        f = open(self._stat_path, 'w')
+        rstats = self.blocktree.get_stats()
+        stats = {}
+        stats['cache-used'] = self._size_to_human(
+          rstats['cache_size'] * self.config['bs']
+        )
+        stats['cache-dirty'] = self._size_to_human(
+          rstats['queue_size'] * self.config['bs']
+        )
+        stats['cache-limit'] = self._size_to_human(self.args.max_cache)
+        stats['sent-reqs'] = str(rstats['sent_count'])
+        stats['recv-reqs'] = str(rstats['recv_count'])
+        stats['sent-data'] = self._size_to_human(rstats['data_sent'])
+        stats['recv-data'] = self._size_to_human(rstats['data_recv'])
+        stats['sent-actual'] = self._size_to_human(rstats['wire_sent'])
+        stats['recv-actual'] = self._size_to_human(rstats['wire_recv'])
+        stats = stats.items()
+        stats.sort(cmp=lambda a, b: cmp(a[0], b[0]))
+        f.write(''.join(map(lambda a: '%s: %s\n' % a, stats)))
+        f.flush()
+        f.close()
+      except:
+        pass
       time.sleep(0.5)
 
   def _size_to_human(self, size):
