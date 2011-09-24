@@ -85,16 +85,12 @@ def _def_backer(key):
 
 class Cache(dict):
 
-  def __init__(self, backercb = _def_backer,
-               queue_ratio = 0.5, total_size = 2 ** 6,
-               flush_ratio = 0.5, **kargs):
+  def __init__(self, backercb = _def_backer):
     super(Cache, self).__init__()
     self._backercb = backercb
-    self._queue_ratio = queue_ratio
-    self._total_size = total_size
-    self._flush_ratio = flush_ratio
-    self._queue_size = int(self._queue_ratio * self._total_size)
-    self._flush_size = int(self._flush_ratio * self._queue_size)
+    self.total_size = 1
+    self.queue_size = 1
+    self.flush_size = 1
     self._ts = {}
     self._pinned = set()
     self._queue = []
@@ -128,11 +124,11 @@ class Cache(dict):
   def _trim(self):
     """Trim the unqueued items down to the total size."""
     with self._lock:
-      if len(self) > self._total_size:
+      if len(self) > self.total_size:
         print(dict.__repr__(self))
         unqueued = filter(lambda a: a not in self._queue, self.keys())
         unqueued.sort(cmp=lambda a, b: cmp(self._ts[a], self._ts[b]))
-        unqueued = unqueued[0:len(self) - self._total_size]
+        unqueued = unqueued[0:len(self) - self.total_size]
         for k in unqueued:
           del self._ts[k]
           del self[k]
@@ -140,7 +136,7 @@ class Cache(dict):
   def __setitem__(self, key, value):
     with self._lock:
       while (key not in self._queue
-             and len(self._queue) == self._queue_size):
+             and len(self._queue) == self.queue_size):
         self._set_wait.wait()
       super(Cache, self).__setitem__(key, value)
       self._ts[key] = time.time()
@@ -148,7 +144,7 @@ class Cache(dict):
         self._queue.remove(key)
       self._queue.append(key)
       self._trim()
-      if len(self._queue) == self._queue_size:
+      if len(self._queue) == self.queue_size:
         self._dequeue_wait.notify_all()
 
   def _pop_next_unpinned_key(self):
@@ -164,7 +160,7 @@ class Cache(dict):
     with self._lock:
       while True:
         if self._wait_on_empty:
-          if len(self._queue) < self._flush_size:
+          if len(self._queue) < self.flush_size:
             self._dequeue_wait.wait()
             continue
           else:

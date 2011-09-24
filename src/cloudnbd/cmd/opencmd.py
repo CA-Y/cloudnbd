@@ -98,12 +98,9 @@ class OpenCMD(object):
     self.blocktree = cloudnbd.blocktree.BlockTree(
       pass_key=self.pass_key,
       cloud=self.cloud,
-      threads=self.args.threads,
-      read_ahead=self.args.read_ahead,
-      total_cache=cloudnbd._default_total_cache_size,
-      queue_ratio=cloudnbd._write_to_total_cache_ratio,
-      flush_ratio=cloudnbd._write_queue_to_flush_ratio
+      threads=self.args.threads
     )
+    self.blocktree.read_ahead = self.args.read_ahead
 
     # ensure there is a volume with the given name (config file exists)
 
@@ -123,9 +120,17 @@ class OpenCMD(object):
     total_cache = self.args.max_cache // self.config['bs']
     write_cache = (self.args.max_cache *
       cloudnbd._write_to_total_cache_ratio) // self.config['bs']
+    flush_cache = (self.args.max_cache *
+      cloudnbd._write_to_total_cache_ratio *
+      cloudnbd._write_queue_to_flush_ratio) // self.config['bs']
     if total_cache < 1: total_cache = 1
     if write_cache < 1: write_cache = 1
-    self.blocktree.set_cache_limits(total_cache, write_cache)
+    if flush_cache < 1: flush_cache = 1
+    self.blocktree.set_cache_limits(
+      total=total_cache,
+      write=write_cache,
+      flush=flush_cache
+    )
 
     # set the reporting size for NBD
 
@@ -152,4 +157,3 @@ def main(args):
   get_all_creds(args)
   opencmd = OpenCMD(args)
   opencmd.run()
-

@@ -80,20 +80,14 @@ def _indep_get(blocktree, cloud, k):
 class BlockTree(object):
   """Interface between cloud and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, cloud = None,
-               threads = 1, read_ahead = 0, cow = False,
-               total_cache = 1, queue_ratio  = 1, flush_ratio = 1):
+               threads = 1):
+    self.read_ahead = 0
     self.threads = threads
-    self.read_ahead = read_ahead
-    self.cow = cow
+    self.cow = False
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.cloud = cloud
-    self._cache = cloudnbd.Cache(
-      backercb=self._cache_read_cb,
-      total_size=total_cache,
-      queue_ratio=queue_ratio,
-      flush_ratio=flush_ratio
-    )
+    self._cache = cloudnbd.Cache(backercb=self._cache_read_cb)
     # initialize the writer threads
     self._writers = []
     for i in xrange(threads):
@@ -122,9 +116,10 @@ class BlockTree(object):
     #       self._read_queue.push(ra_k)
     return _indep_get(self, self.cloud, k)
 
-  def set_cache_limits(self, total, write):
-    self._cache.total_size = total
-    self._cache.queue_size = write
+  def set_cache_limits(self, total = None, write = None, flush = None):
+    if total is not None: self._cache.total_size = total
+    if write is not None: self._cache.queue_size = write
+    if flush is not None: self._cache.flush_size = flush
 
   def set(self, path, data, direct = False):
     """Upload/queue an object on/to be uploaded to cloud."""
