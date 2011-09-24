@@ -21,12 +21,14 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
 import cloudnbd
+import os
 from cloudnbd import nbd
 from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 class OpenCMD(object):
   """Serve the cloud through an NBD server"""
   def __init__(self, args):
+    self._serve_stat = False
     self.args = args
     self.cloud = cloudnbd.cloud.backends[args.backend](
       access_key=args.access_key,
@@ -83,6 +85,12 @@ class OpenCMD(object):
 
   def nbd_closecb(self):
     pass
+
+  def _run_silent(self, t, *args, **kwargs):
+    try:
+      t(*args, **kwargs)
+    except:
+      pass
 
   def run(self):
 
@@ -143,15 +151,57 @@ class OpenCMD(object):
 
     self.empty_block = b'\x00' * self.config['bs']
 
-    # start NBD server
+    # TODO a fork goes here
 
-    print('running server')
-    self.nbd.run()
+    # setup a unix socket for stat communication and pid file
 
-    # wrap up
+    self._stat_path = cloudnbd._stat_path \
+      % (self.args.backend, self.args.bucket, self.args.volume)
+    self._pid_path = cloudnbd._pid_path  \
+      % (self.args.backend, self.args.bucket, self.args.volume)
 
-    print('committing cache before closing')
-    self.blocktree.close()
+    def create_stat():
+      if os.path.exists(self._stat_path):
+        os.unlink(self._stat_path)
+      os.mknod(self._stat_path, mode= 0600 | os.S_IFIFO)
+      self._serve_stat = True
+    def create_pid():
+      open(self._pid_path, 'w').write(str(os.getpid()))
+    def delete_file(path):
+      os.unlink(path)
+    self._run_silent(create_stat)
+    self._run_silent(create_pid)
+
+    try:
+      self._run()
+    finally:
+      self._run_silent(delete_file, self._stat_path)
+      self._run_silent(delete_file, self._pid_path)
+
+  def _stat_server_worker(self):
+    while True:
+      f = open(self._stat_path, 'w')
+      f.write('fuckerrrr')
+      f.close()
+
+  def _run(self):
+
+      # start a thread for stat
+
+      if self._serve_stat:
+        self._stat_thread = Thread(target=self._stat_server_worker)
+        self._stat_thread.daemon = True
+        self._stat_thread.start()
+
+      # start NBD server
+
+      print('running server')
+      self.nbd.run()
+
+      # wrap up
+
+      print('committing cache before closing')
+      self.blocktree.close()
 
 def main(args):
   get_all_creds(args)

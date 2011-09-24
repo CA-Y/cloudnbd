@@ -29,6 +29,8 @@ _write_to_total_cache_ratio = 0.5
 _write_queue_to_flush_ratio = 0.7
 _default_write_thread_count = 10
 _default_read_ahead_count = 3
+_stat_path = '/tmp/' + _prog_name + '-%s-%s-%s.stat'
+_pid_path = '/tmp/' + _prog_name + '-%s-%s-%s.pid'
 
 _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
@@ -125,7 +127,6 @@ class Cache(dict):
     """Trim the unqueued items down to the total size."""
     with self._lock:
       if len(self) > self.total_size:
-        print(dict.__repr__(self))
         unqueued = filter(lambda a: a not in self._queue, self.keys())
         unqueued.sort(cmp=lambda a, b: cmp(self._ts[a], self._ts[b]))
         unqueued = unqueued[0:len(self) - self.total_size]
