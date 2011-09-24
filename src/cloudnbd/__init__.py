@@ -80,20 +80,19 @@ class SyncQueue(object):
       if k in self._queue:
         self._queue.remove(k)
 
+def _def_backer(key):
+  return None
+
 class Cache(dict):
 
-  def __init__(self, *args, **kargs):
-    super(Cache, self).__init__(*args, **kargs)
-    def _def_backer(key):
-      return None
-    self._backercb = \
-      kargs['backercb'] if 'backercb' in kargs else _def_backer
-    self._queue_ratio = \
-      kargs['queue_ratio'] if 'queue_ratio' in kargs else 0.5
-    self._total_size = \
-      kargs['total_size'] if 'total_size' in kargs else 2 ** 6
-    self._flush_ratio = \
-      kargs['flush_ratio'] if 'flush_ratio' in kargs else 0.5
+  def __init__(self, backercb = _def_backer,
+               queue_ratio = 0.5, total_size = 2 ** 6,
+               flush_ratio = 0.5, **kargs):
+    super(Cache, self).__init__()
+    self._backercb = backercb
+    self._queue_ratio = queue_ratio
+    self._total_size = total_size
+    self._flush_ratio = flush_ratio
     self._queue_size = int(self._queue_ratio * self._total_size)
     self._flush_size = int(self._flush_ratio * self._queue_size)
     self._ts = {}
@@ -130,6 +129,7 @@ class Cache(dict):
     """Trim the unqueued items down to the total size."""
     with self._lock:
       if len(self) > self._total_size:
+        print(dict.__repr__(self))
         unqueued = filter(lambda a: a not in self._queue, self.keys())
         unqueued.sort(cmp=lambda a, b: cmp(self._ts[a], self._ts[b]))
         unqueued = unqueued[0:len(self) - self._total_size]

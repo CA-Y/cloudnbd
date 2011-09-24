@@ -27,6 +27,14 @@ import urllib2
 import hashlib
 from cloudnbd.cloud import *
 
+# set the boto config that forces certificate validation for HTTPS
+# connections
+
+from boto import config
+if not config.has_section('Boto'):
+  config.add_section('Boto')
+config.setbool('Boto', 'https_validate_certificates', True)
+
 class GSObject(CloudObject):
   """A cloud object with content and metadata, initially however
   containing only the metadata.

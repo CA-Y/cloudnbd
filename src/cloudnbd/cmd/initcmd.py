@@ -27,9 +27,8 @@ def main(args):
 
   get_all_creds(args)
 
-  cloud = cloudnbd.cloud.bridge(
+  cloud = cloudnbd.cloud.backends[args.backend](
     access_key=args.access_key,
-    secret_key=args.secret_key,
     bucket=args.bucket,
     volume=args.volume
   )
