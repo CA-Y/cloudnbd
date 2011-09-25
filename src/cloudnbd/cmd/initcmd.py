@@ -52,8 +52,12 @@ def main(args):
 
   # ensure no volume with the same name exists
   
-  config = blocktree.get('config')
-  if config:
+  try:
+    config = blocktree.get('config')
+    if config:
+      fatal("volume '%s' in bucket '%s' already exists"
+            % (args.volume, args.bucket))
+  except cloudnbd.blocktree.BTInvalidKey:
     fatal("volume '%s' in bucket '%s' already exists"
           % (args.volume, args.bucket))
 

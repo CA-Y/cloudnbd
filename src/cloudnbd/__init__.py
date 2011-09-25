@@ -41,6 +41,22 @@ _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
         b'\xb9H\xcc\xe4\xf5\x9bs\xc0\xba\xab\xf0\x1b\xb4\xdb\xf6T' \
         b'\xe9\xe2\xc1\xc3R]\xc0\xd1'
+_crypt_magic = b'C10Ud-LiC1ou5'
+
+
+def size_to_hum(size):
+  if size < 1100:
+    return '%d B' % size
+  elif size < 1100000:
+    return '%.1f KB' % (size / 1000)
+  elif size < 1100000000:
+    return '%.1f MB' % (size / 1000000)
+  elif size < 1100000000000:
+    return '%.1f GB' % (size / 1000000000)
+  elif size < 1100000000000000:
+    return '%.1f TB' % (size / 1000000000000)
+  else:
+    return '%.1f PB' % (size / 1000000000000000)
 
 def get_stat_path(backend, bucket, volume):
   return _stat_path % (backend, bucket, volume, 'stat')

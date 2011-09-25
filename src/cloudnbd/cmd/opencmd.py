@@ -204,19 +204,19 @@ class OpenCMD(object):
         f = open(self._stat_path, 'w')
         rstats = self.blocktree.get_stats()
         stats = {}
-        stats['cache-used'] = self._size_to_human(
+        stats['cache-used'] = cloudnbd.size_to_hum(
           rstats['cache_size'] * self.config['bs']
         )
-        stats['cache-dirty'] = self._size_to_human(
+        stats['cache-dirty'] = cloudnbd.size_to_hum(
           rstats['queue_size'] * self.config['bs']
         )
-        stats['cache-limit'] = self._size_to_human(self.args.max_cache)
+        stats['cache-limit'] = cloudnbd.size_to_hum(self.args.max_cache)
         stats['sent-reqs'] = str(rstats['sent_count'])
         stats['recv-reqs'] = str(rstats['recv_count'])
-        stats['sent-data'] = self._size_to_human(rstats['data_sent'])
-        stats['recv-data'] = self._size_to_human(rstats['data_recv'])
-        stats['sent-actual'] = self._size_to_human(rstats['wire_sent'])
-        stats['recv-actual'] = self._size_to_human(rstats['wire_recv'])
+        stats['sent-data'] = cloudnbd.size_to_hum(rstats['data_sent'])
+        stats['recv-data'] = cloudnbd.size_to_hum(rstats['data_recv'])
+        stats['sent-actual'] = cloudnbd.size_to_hum(rstats['wire_sent'])
+        stats['recv-actual'] = cloudnbd.size_to_hum(rstats['wire_recv'])
         stats['status'] = self._status
         stats['socket'] = '%s:%d' % (self.args.bind_address,
                                      self.args.port)
@@ -230,20 +230,6 @@ class OpenCMD(object):
       except:
         pass
       time.sleep(0.5)
-
-  def _size_to_human(self, size):
-    if size < 1100:
-      return '%d B' % size
-    elif size < 1100000:
-      return '%.1f KB' % (size / 1000)
-    elif size < 1100000000:
-      return '%.1f MB' % (size / 1000000)
-    elif size < 1100000000000:
-      return '%.1f GB' % (size / 1000000000)
-    elif size < 1100000000000000:
-      return '%.1f TB' % (size / 1000000000000)
-    else:
-      return '%.1f PB' % (size / 1000000000000000)
 
   def _run(self):
 
@@ -268,7 +254,8 @@ class OpenCMD(object):
 
         if self.args.foreground:
           print('running server')
-        self.nbd.run()
+        while True:
+          self.nbd.run()
 
       except KillInterrupt:
         if self.args.foreground:

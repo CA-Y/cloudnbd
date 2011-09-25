@@ -32,7 +32,7 @@ from Crypto.Cipher import AES
 
 class BTError(Exception):
   pass
-class BTDecryptFailed(BTError):
+class BTInvalidKey(BTError):
   pass
 class BTChecksumError(BTError):
   pass
@@ -169,8 +169,15 @@ class BlockTree(object):
     decryptor = AES.new(key, AES.MODE_CBC, iv)
     data = decryptor.decrypt(data)
     data = data[:size]
+    magic_len = len(cloudnbd._crypt_magic)
+    magic = data[-magic_len:]
+    if magic != cloudnbd._crypt_magic:
+      raise BTInvalidKey("decryption of '%s' failed possibly due to"
+                         " invalid encryption key (or passphrase)"
+                         % path)
+    data = data[:-magic_len]
     if zipped:
-      data = zlib.decompress(data)
+     data = zlib.decompress(data)
     return data
 
   def _encrypt_data(self, path, data):
@@ -183,6 +190,7 @@ class BlockTree(object):
       data = zipped
     else:
       storezip = 0
+    data += cloudnbd._crypt_magic
     header = struct.pack(b'!BQ', storezip, len(data))
     data = data.ljust((len(data) // 32 + 1) * 32, b'\0')
     key = self.pass_key if path == 'config' else self.crypt_key
