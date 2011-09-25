@@ -32,5 +32,6 @@ def main(args):
     content = open(path, 'r').read()
   except:
     fatal('the requested volume does not seem to be open - use'
-          ' \'cloudbd list\' to get list of currently open volumes')
+          ' \'%s list\' to get list of currently open volumes'
+          % cloudnbd._prog_name)
   sys.stdout.write(content)

@@ -25,8 +25,20 @@ import os
 import stat
 import threading
 import time
+import signal
 from cloudnbd import nbd
 from cloudnbd.cmd import fatal, warning, info, get_all_creds
+
+class KillInterrupt(Exception):
+  pass
+
+def sig_noop_handler(signum, frame):
+  pass
+def sigterm_handler(signum, frame):
+  raise KillInterrupt()
+def sigint_handler(signum, frame):
+  signal.signal(signal.SIGINT, sig_noop_handler)
+  raise KeyboardInterrupt()
 
 class OpenCMD(object):
   """Serve the cloud through an NBD server"""
@@ -154,7 +166,11 @@ class OpenCMD(object):
 
     self.empty_block = b'\x00' * self.config['bs']
 
-    # TODO a fork goes here
+    # fork the process
+
+    if not self.args.foreground:
+      if os.fork() != 0:
+        return
 
     # setup a unix socket for stat communication and pid file
 
@@ -201,9 +217,14 @@ class OpenCMD(object):
         stats['recv-data'] = self._size_to_human(rstats['data_recv'])
         stats['sent-actual'] = self._size_to_human(rstats['wire_sent'])
         stats['recv-actual'] = self._size_to_human(rstats['wire_recv'])
+        stats['status'] = self._status
+        stats['socket'] = '%s:%d' % (self.args.bind_address,
+                                     self.args.port)
+        max_key_len = max(map(len, stats.keys()))
+        fmt = '%%-%ds   %%s\n' % max_key_len
         stats = stats.items()
         stats.sort(cmp=lambda a, b: cmp(a[0], b[0]))
-        f.write(''.join(map(lambda a: '%s: %s\n' % a, stats)))
+        f.write(''.join(map(lambda a: fmt % a, stats)))
         f.flush()
         f.close()
       except:
@@ -228,6 +249,8 @@ class OpenCMD(object):
 
       # start a thread for stat
 
+      self._status = 'open'
+
       if self._serve_stat:
         self._stat_thread = \
           threading.Thread(target=self._stat_server_worker)
@@ -236,12 +259,30 @@ class OpenCMD(object):
 
       # start NBD server
 
-      print('running server')
-      self.nbd.run()
+      try:
+
+        # plant the signal handlers
+
+        signal.signal(signal.SIGTERM, sigterm_handler)
+        signal.signal(signal.SIGINT, sigint_handler)
+
+        if self.args.foreground:
+          print('running server')
+        self.nbd.run()
+
+      except KillInterrupt:
+        if self.args.foreground:
+          fatal('process killed - cache discarded')
+      except KeyboardInterrupt:
+        if self.args.foreground:
+          print('interrupted')
 
       # wrap up
 
-      print('committing cache before closing')
+      self._status = 'closing'
+
+      if self.args.foreground:
+        print('committing cache before closing')
       self.blocktree.close()
 
 def main(args):

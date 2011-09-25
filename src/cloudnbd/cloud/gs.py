@@ -68,16 +68,15 @@ class GS(Bridge):
     """
     self._access_key, self._secret_key = self.access_key.split(':')
     from boto.gs.connection import GSConnection
-    from boto.exception import S3ResponseError
+    from boto.exception import GSResponseError
     try:
       self._conn = GSConnection(self._access_key, self._secret_key)
       self._bucket = self._conn.get_bucket(self.bucket)
-    except S3ResponseError as e:
+    except GSResponseError as e:
       if e.error_code == 'NoSuchBucket':
         raise BridgeNoSuchBucket('Invalid bucket name given')
       else: # e.error_code == 'AccessDenied':
-        raise BridgeAccessDenied('Invalid access key or secret for the'
-                                 ' specified bucket')
+        raise BridgeAccessDenied('Invalid access key specified bucket')
     self._can_access = True
 
   def clone(self):

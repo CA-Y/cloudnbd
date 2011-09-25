@@ -36,6 +36,8 @@ def main(args):
       lst.append((path['backend'], path['bucket'], path['volume']))
     except:
       pass
+  if not lst:
+    fatal('there are no open volumes at this time')
   lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
   lst = [('[backend]', '[bucket]', '[volume]')] + lst
   lst_len = map(lambda a: map(lambda b: len(b), a), lst)

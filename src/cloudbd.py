@@ -45,6 +45,7 @@ def main():
     'close',
     help='close an open volume'
   )
+  _add_backend_args(parser_a)
   _add_name_args(parser_a)
   _add_close_cow_args(parser_a)
 
@@ -53,6 +54,7 @@ def main():
     'closeall',
     help='close all open volumes'
   )
+  _add_backend_args(parser_a)
   _add_close_cow_args(parser_a)
 
   # info arguments
@@ -120,6 +122,11 @@ def main():
     help="maximum amount of in-memory cache to use -"
          " e.g. 100M which is 100 megabytes (default: %d)" \
           % cloudnbd._default_total_cache_size
+  )
+  parser_a.add_argument(
+    '--foreground',
+    action='store_true',
+    help="run the server in the foreground"
   )
 
   # resize arguments
