@@ -137,6 +137,7 @@ def main():
     'stat',
     help='show statistics about a currently open volume'
   )
+  _add_backend_args(parser_a)
   _add_name_args(parser_a)
 
   args = parser.parse_args()

@@ -9,6 +9,8 @@ from __future__ import division
 import json
 import time
 import threading
+import re
+import glob
 
 _ver_major = 0
 _ver_minor = 1
@@ -29,13 +31,40 @@ _write_to_total_cache_ratio = 0.5
 _write_queue_to_flush_ratio = 0.7
 _default_write_thread_count = 10
 _default_read_ahead_count = 3
-_stat_path = '/tmp/' + _prog_name + '-%s-%s-%s.stat'
-_pid_path = '/tmp/' + _prog_name + '-%s-%s-%s.pid'
+_stat_path = '/tmp/' + _prog_name + ':%s:%s:%s:%s'
+_stat_pat = re.compile(
+  r'/' + _prog_name + r':([^:]+):([^:]+):([^:]+):(.+)$'
+)
+_stat_glob = '/tmp/' + _prog_name + ':*:*:*:*'
 
 _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
         b'\xb9H\xcc\xe4\xf5\x9bs\xc0\xba\xab\xf0\x1b\xb4\xdb\xf6T' \
         b'\xe9\xe2\xc1\xc3R]\xc0\xd1'
+
+def get_stat_path(backend, bucket, volume):
+  return _stat_path % (backend, bucket, volume, 'stat')
+
+def get_pid_path(backend, bucket, volume):
+  return _stat_path % (backend, bucket, volume, 'pid')
+
+def get_stat_paths():
+  file_list = glob.glob(_stat_glob)
+  file_list = map(get_path_comps, file_list)
+  return filter(lambda a: a is not None, file_list)
+
+def get_path_comps(path):
+  m = _stat_pat.search(path)
+  if m:
+    return {
+      'backend': m.group(1),
+      'bucket': m.group(2),
+      'volume': m.group(3),
+      'ext': m.group(4),
+      'path': path
+    }
+  else:
+    return None
 
 class SerializeFailed(Exception):
   pass

@@ -158,10 +158,10 @@ class OpenCMD(object):
 
     # setup a unix socket for stat communication and pid file
 
-    self._stat_path = cloudnbd._stat_path \
-      % (self.args.backend, self.args.bucket, self.args.volume)
-    self._pid_path = cloudnbd._pid_path  \
-      % (self.args.backend, self.args.bucket, self.args.volume)
+    self._stat_path = cloudnbd.get_stat_path(
+      self.args.backend, self.args.bucket, self.args.volume)
+    self._pid_path = cloudnbd.get_pid_path(
+      self.args.backend, self.args.bucket, self.args.volume)
 
     def create_stat():
       if os.path.exists(self._stat_path):
