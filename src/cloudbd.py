@@ -54,7 +54,6 @@ def main():
     'closeall',
     help='close all open volumes'
   )
-  _add_backend_args(parser_a)
   _add_close_cow_args(parser_a)
 
   # info arguments
