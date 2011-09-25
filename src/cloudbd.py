@@ -56,6 +56,28 @@ def main():
   )
   _add_close_cow_args(parser_a)
 
+  # delete arguments
+  parser_a = subparsers.add_parser(
+    'delete',
+    help='delete volume'
+  )
+  _add_backend_args(parser_a)
+  _add_name_args(parser_a)
+  _add_auth_args(parser_a)
+  parser_a.add_argument(
+    '--yes',
+    action='store_true',
+    help="suppress delete confirmation"
+  )
+  parser_a.add_argument(
+    '-t', '--threads',
+    type=int,
+    metavar='<count>',
+    default=cloudnbd._default_delete_thread_count,
+    help="number of delete threads (default: %d)" \
+          % cloudnbd._default_delete_thread_count
+  )
+
   # info arguments
   parser_a = subparsers.add_parser(
     'info',

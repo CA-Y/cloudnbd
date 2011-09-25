@@ -127,10 +127,14 @@ class OpenCMD(object):
 
     # ensure there is a volume with the given name (config file exists)
 
-    config = self.blocktree.get('config')
-    if not config:
-      fatal("volume with name '%s' does not exist in bucket '%s'"
-            % (self.args.volume, self.args.bucket))
+    try:
+      config = self.blocktree.get('config')
+      if not config:
+        fatal("volume with name '%s' does not exist in bucket '%s'"
+              % (self.args.volume, self.args.bucket))
+    except cloudnbd.blocktree.BTInvalidKey:
+      fatal("decryption of config failed, most likely wrong"
+            " passphrase supplied")
 
     # load the config and get the encryption key
 

@@ -99,10 +99,7 @@ class GS(Bridge):
 
   def get(self, path):
     """Get the value of the object given by the path."""
-    if not self._can_access:
-      raise BridgeAccessNotChecked(
-        'check_access() must be called first'
-      )
+    self._ensure_access()
     while True:
       try:
         key = self._bucket.get_key('%s/%s' % (self.volume, path))
@@ -117,10 +114,7 @@ class GS(Bridge):
 
   def set(self, path, content, metadata={}):
     """Set the value of the object given by the path."""
-    if not self._can_access:
-      raise BridgeAccessNotChecked(
-        'check_access() must be called first'
-      )
+    self._ensure_access()
     from boto.gs.key import Key
     k = Key(self._bucket)
     k.key = '%s/%s' % (self.volume, path)
@@ -134,10 +128,7 @@ class GS(Bridge):
       time.sleep(1)
 
   def copy(self, src, target):
-    if not self._can_access:
-      raise BridgeAccessNotChecked(
-        'check_access() must be called first'
-      )
+    self._ensure_access()
     while True:
       try:
         self._bucket.copy_key(
@@ -151,10 +142,7 @@ class GS(Bridge):
       time.sleep(1)
 
   def delete(self, path):
-    if not self._can_access:
-      raise BridgeAccessNotChecked(
-        'check_access() must be called first'
-      )
+    self._ensure_access()
     while True:
       try:
         self._bucket.delete_key('%s/%s' % (self.volume, path))
@@ -162,3 +150,18 @@ class GS(Bridge):
       except:
         pass
       time.sleep(1)
+
+  def list(self, prefix=''):
+    self._ensure_access()
+    while True:
+      try:
+        return self._bucket.list(prefix='%s/%s' % (self.volume, prefix))
+      except:
+        pass
+      time.sleep(1)
+
+  def _ensure_access(self):
+    if not self._can_access:
+      raise BridgeAccessNotChecked(
+        'check_access() must be called first'
+      )

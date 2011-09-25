@@ -77,6 +77,9 @@ class Bridge(object):
   def delete(self, path):
     raise NotImplementedError('abstract class')
 
+  def list(self, prefix):
+    raise NotImplementedError('abstract class')
+
 from cloudnbd.cloud import gs
 
 backends = {
