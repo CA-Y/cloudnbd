@@ -31,7 +31,7 @@ def main(args):
   for p in paths:
     try:
       pid = os.kill(int(open(p['path'], 'r').read()), signal.SIGINT)
-      print('%s %s %s   closing'
+      print('%s %s %s -> closing'
             % (p['backend'], p['bucket'], p['volume']))
     except:
       pass

@@ -182,15 +182,7 @@ class OpenCMD(object):
     # fork the process
 
     if not self.args.foreground:
-  
-      # before we fork, redirect all outputs to dev null to avoid locks
-      # on non-existent standard output/error
-
-      sys.stdout = open(os.devnull, 'w')
-      sys.stderr = open(os.devnull, 'w')
-
-      if os.fork() != 0:
-        return
+      cloudnbd.daemon.createDaemon()
 
     # setup a unix socket for stat communication and pid file
 

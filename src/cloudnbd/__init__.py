@@ -250,3 +250,4 @@ from cloudnbd import auth
 from cloudnbd import cloud
 from cloudnbd import blocktree
 from cloudnbd import nbd
+from cloudnbd import daemon
