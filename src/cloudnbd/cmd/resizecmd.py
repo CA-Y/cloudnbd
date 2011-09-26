@@ -134,6 +134,8 @@ class ResizeCMD(object):
     for t in threads:
       t.join()
     print()
+    print('object cleanup completed')
+    print('resize completed with object cleanup')
 
   def _get_blocks_to_delete(self):
     for l in self._cachefile:
@@ -155,10 +157,6 @@ class ResizeCMD(object):
         except StopIteration:
           return
     return delete_worker
-
-  print('object cleanup completed')
-  print('resize completed with object cleanup')
-
 
 def _print_caching_progress(item_count):
   sys.stdout.write(
