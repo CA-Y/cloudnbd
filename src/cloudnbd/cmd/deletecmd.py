@@ -71,13 +71,17 @@ class DeleteCMD(object):
 
     # confirm with the user if they're really sure
 
-    if not self.args.yes:
-      print('\nNOTE that past this point, your volume will be'
-            ' corrupted as result of partial deletion and'
-            ' eventually completely deleted. There will be'
-            ' no going back past this point.')
-      if raw_input('To continute, type yes in uppercase: ') != 'YES':
-        fatal('delete aborted')
+    if 'deleted' not in self.config:
+      if not self.args.yes:
+        print('\nNOTE that past this point, your volume will be'
+              ' corrupted as result of partial deletion and'
+              ' eventually completely deleted. There will be'
+              ' no going back past this point.')
+        if raw_input('To continute, type yes in uppercase: ') != 'YES':
+          fatal('delete aborted')
+      self.config['deleted'] = True
+      self.blocktree.set('config', cloudnbd.serialize(self.config),
+                         direct=True)
 
     # store the block number of all blocks to a file to avoid concurrent
     # access issues

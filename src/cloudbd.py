@@ -157,8 +157,13 @@ def main():
   )
   _add_backend_args(parser_a)
   _add_name_args(parser_a)
-  _add_size_args(parser_a, as_arg=True)
   _add_auth_args(parser_a)
+  _add_size_args(parser_a)
+  parser_a.add_argument(
+    '-u', '--cleanup',
+    action='store_true',
+    help="perform block cleanup for the unused block"
+  )
 
   # stat arguments
   parser_a = subparsers.add_parser(

@@ -66,6 +66,11 @@ class InfoCMD(object):
 
     self.config = cloudnbd.deserialize(config)
 
+    # ensure the volume is not being deleted
+
+    if 'deleted' in self.config:
+      fatal('volume set to be deleted')
+
     # print the relevant info to standard output
 
     print('size:         %s' \

@@ -136,9 +136,17 @@ class OpenCMD(object):
       fatal("decryption of config failed, most likely wrong"
             " passphrase supplied")
 
-    # load the config and get the encryption key
+    # load the config
 
     self.config = cloudnbd.deserialize(config)
+
+    # ensure the volume is not being deleted
+
+    if 'deleted' in self.config:
+      fatal('volume set to be deleted')
+
+    # get the encryption key
+
     self.crypt_key = self.config['crypt_key'].decode('hex')
     self.blocktree.crypt_key = self.crypt_key
 
