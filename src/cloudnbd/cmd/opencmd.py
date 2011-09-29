@@ -33,13 +33,6 @@ from cloudnbd.cmd import fatal, warning, info, get_all_creds
 class KillInterrupt(Exception):
   pass
 
-def sig_noop_handler(signum, frame):
-  pass
-def sigterm_handler(signum, frame):
-  raise KillInterrupt()
-def sigint_handler(signum, frame):
-  signal.signal(signal.SIGINT, sig_noop_handler)
-  raise KeyboardInterrupt()
 
 class OpenCMD(object):
   """Serve the cloud through an NBD server"""
@@ -58,6 +51,7 @@ class OpenCMD(object):
       writecb=self.nbd_writecb,
       closecb=self.nbd_closecb
     )
+    self._interrupted = False
 
   def get_block(self, block):
     data = self.blocktree.get('blocks/%d' % block)
@@ -215,7 +209,10 @@ class OpenCMD(object):
       try:
         f = open(self._stat_path, 'w')
         rstats = self.blocktree.get_stats()
+        nbdstats = self.nbd.get_stats()
         stats = {}
+        stats['nbd-reads'] = nbdstats['reads']
+        stats['nbd-writes'] = nbdstats['writes']
         stats['cache-used'] = cloudnbd.size_to_hum(
           rstats['cache_size'] * self.config['bs']
         )
@@ -261,8 +258,8 @@ class OpenCMD(object):
 
         # plant the signal handlers
 
-        signal.signal(signal.SIGTERM, sigterm_handler)
-        signal.signal(signal.SIGINT, sigint_handler)
+        signal.signal(signal.SIGTERM, self.sigterm_handler)
+        signal.signal(signal.SIGINT, self.sigint_handler)
 
         if self.args.foreground:
           print('running server')
@@ -272,7 +269,8 @@ class OpenCMD(object):
       except KillInterrupt:
         if self.args.foreground:
           fatal('process killed - cache discarded')
-      except KeyboardInterrupt:
+
+      except cloudnbd.nbd.NBDInterrupted:
         if self.args.foreground:
           print('interrupted')
 
@@ -283,6 +281,16 @@ class OpenCMD(object):
       if self.args.foreground:
         print('committing cache before closing')
       self.blocktree.close()
+
+  def sig_noop_handler(self, signum, frame):
+    pass
+
+  def sigterm_handler(self, signum, frame):
+    raise KillInterrupt()
+
+  def sigint_handler(self, signum, frame):
+    self.nbd.interrupted = True
+    signal.signal(signal.SIGINT, self.sig_noop_handler)
 
 def main(args):
   get_all_creds(args)

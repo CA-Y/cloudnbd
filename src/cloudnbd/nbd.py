@@ -23,8 +23,12 @@ from __future__ import division
 import cloudnbd
 import struct
 import socket
+import threading
 
 class NBDError(Exception):
+  pass
+
+class NBDInterrupted(NBDError):
   pass
 
 def _default_cb(*args):
@@ -49,8 +53,20 @@ class NBD(object):
     self.readcb = readcb
     self.writecb = writecb
     self.closecb = closecb
+    self._lock = threading.RLock()
+    self._stats = {'reads': 0, 'writes': 0}
+    self.interrupted = False
 
   def run(self):
+    try:
+      self._run()
+    except socket.error as (errno, msg):
+      if errno == 4:
+        raise NBDInterrupted()
+      else:
+        raise
+
+  def _run(self):
     self._lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self._lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self._lsock.bind((self.host, self.port))
@@ -58,22 +74,28 @@ class NBD(object):
     sock, addr = self._lsock.accept()
     sock.send(b'NBDMAGIC\x00\x00\x42\x02\x81\x86\x12\x53' +
       struct.pack(b'>Q', self.size) + b'\0' * 128)
-    while True:
+    while not self.interrupted:
       header = self._receive(sock, struct.calcsize(b'>LL8sQL'))
       mag, request, han, off, dlen = struct.unpack(b'>LL8sQL', header)
       if mag != 0x25609513:
         raise NBDError("Invalid NBD magic sent by the client")
       if request == NBD.READ:
+        with self._lock:
+          self._stats['reads'] += 1
         sock.send(b'gDf\x98\0\0\0\0' + han)
         v = self.readcb(off, dlen)
         sock.send(self.readcb(off, dlen))
       elif request == NBD.WRITE:
+        with self._lock:
+          self._stats['writes'] += 1
         self.writecb(off, self._receive(sock, dlen))
         sock.send(b'gDf\x98\0\0\0\0' + han)
       elif request == NBD.CLOSE:
         sock.close()
         self.closecb()
         return
+    if self.interrupted:
+      raise NBDInterrupted()
 
   def _receive(self, sock, length):
     buf = []
@@ -84,3 +106,7 @@ class NBD(object):
       buf.append(chunk)
       length -= len(chunk)
     return b''.join(buf)
+
+  def get_stats(self):
+    with self._lock:
+      return dict(self._stats)
