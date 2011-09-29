@@ -124,7 +124,7 @@ class GS(Bridge):
         k.set_contents_from_string(content)
         break
       except Exception as e: # XXX maybe specify some exceptions here
-        raise e
+        pass
       time.sleep(1)
 
   def copy(self, src, target):
