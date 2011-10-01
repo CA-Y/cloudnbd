@@ -91,7 +91,7 @@ def _indep_get(blocktree, cloud, k):
 class BlockTree(object):
   """Interface between cloud and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, cloud = None,
-               threads = 1):
+               threads = 1, read_ahead = 0):
     self._stats_lock = threading.RLock()
     self._stats = {'recv_count': 0, 'data_recv': 0, 'wire_recv': 0,
                    'sent_count': 0, 'data_sent': 0, 'wire_sent': 0}
@@ -103,21 +103,31 @@ class BlockTree(object):
     self.cloud = cloud
     self._cache = cloudnbd.Cache(backercb=self._cache_read_cb)
     # initialize the writer threads
+    self._writers_active = False
     self._writers = []
     for i in xrange(threads):
       writer = threading.Thread(target=_writer_factory(self))
       writer.daemon = True
       self._writers.append(writer)
-      writer.start()
     # initialize the readahead threads
-    # self._read_queue = cloudnbd.SyncQueue()
-    # self._read_ahead = read_ahead
-    # self._readers = []
-    # for i in xrange(read_ahead):
-    #   reader = threading.Thread(target=_reader_factory(self))
-    #   reader.daemon = True
-    #   self._readers.append(reader)
-    #   reader.start()
+    self._readers_active = False
+    self._read_queue = cloudnbd.SyncQueue()
+    self._read_ahead = read_ahead
+    self._readers = []
+    for i in xrange(read_ahead):
+      reader = threading.Thread(target=_reader_factory(self))
+      reader.daemon = True
+      self._readers.append(reader)
+
+  def start_writers(self):
+    for w in self._writers:
+      w.start()
+    self._writers_active = True
+
+  def start_readers(self):
+    for r in self._readers:
+      r.start()
+    self._readers_active = True
 
   def get_stats(self):
     with self._stats_lock:
@@ -126,14 +136,15 @@ class BlockTree(object):
       return comb_stats
 
   def _cache_read_cb(self, k):
-    # m = re.match(r'^(.*?blocks/)(\d+)$', k)
-    # if m:
-    #   s = int(m.group(2)) + 1
-    #   e = s + self._read_ahead + 1
-    #   for b in xrange(s, e):
-    #     ra_k = '%s%d' % (m.group(1), b)
-    #     if ra_k not in self._cache:
-    #       self._read_queue.push(ra_k)
+    if self._readers_active:
+      m = re.match(r'^(.*?blocks/)(\d+)$', k)
+      if m:
+        s = int(m.group(2)) + 1
+        e = s + self._read_ahead + 1
+        for b in xrange(s, e):
+          ra_k = '%s%d' % (m.group(1), b)
+          if ra_k not in self._cache:
+            self._read_queue.push(ra_k)
     return _indep_get(self, self.cloud, k)
 
   def set_cache_limits(self, total = None, write = None, flush = None):
@@ -211,6 +222,7 @@ class BlockTree(object):
     return self._cache[path]
 
   def close(self):
-    self._cache.set_wait_on_empty(False)
-    for th in self._writers:
-      th.join()
+    if self._writers_active:
+      self._cache.set_wait_on_empty(False)
+      for th in self._writers:
+        th.join()

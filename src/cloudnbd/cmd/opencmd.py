@@ -33,7 +33,6 @@ from cloudnbd.cmd import fatal, warning, info, get_all_creds
 class KillInterrupt(Exception):
   pass
 
-
 class OpenCMD(object):
   """Serve the cloud through an NBD server"""
   def __init__(self, args):
@@ -251,6 +250,11 @@ class OpenCMD(object):
           threading.Thread(target=self._stat_server_worker)
         self._stat_thread.daemon = True
         self._stat_thread.start()
+
+      # start the readers/writers workers on blocktree
+
+      self.blocktree.start_writers()
+      # self.blocktree.start_readers()
 
       # start NBD server
 
