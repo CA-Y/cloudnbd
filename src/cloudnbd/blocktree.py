@@ -63,6 +63,8 @@ def _reader_factory(blocktree):
     try:
       while True:
         k = blocktree._read_queue.pop()
+        if k in blocktree._cache:
+          continue
         value = _indep_get(blocktree, cloud, k)
         blocktree._cache.set_super_item(k, value)
         blocktree._read_queue.remove(k)
@@ -132,15 +134,6 @@ class BlockTree(object):
       return comb_stats
 
   def _cache_read_cb(self, k):
-    if self._readers_active:
-      m = re.match(r'^(.*?blocks/)(\d+)$', k)
-      if m:
-        s = int(m.group(2)) + 1
-        e = s + self._read_ahead + 1
-        for b in xrange(s, e):
-          ra_k = '%s%d' % (m.group(1), b)
-          if ra_k not in self._cache:
-            self._read_queue.push(ra_k)
     return _indep_get(self, self.cloud, k)
 
   def set_cache_limits(self, total = None, write = None, flush = None):
@@ -209,6 +202,15 @@ class BlockTree(object):
 
   def get(self, path):
     """Get the value of an object."""
+    if self._readers_active:
+      m = re.match(r'^(.*?blocks/)(\d+)$', path)
+      if m:
+        s = int(m.group(2)) + 1
+        e = s + self._read_ahead + 1
+        for b in xrange(s, e):
+          ra_k = '%s%d' % (m.group(1), b)
+          if ra_k not in self._cache:
+            self._read_queue.push(ra_k)
     return self._cache[path]
 
   def close(self):
