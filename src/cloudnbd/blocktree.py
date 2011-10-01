@@ -118,7 +118,7 @@ class BlockTree(object):
   def start_readers(self):
     self._read_queue = cloudnbd.SyncQueue()
     self._readers = []
-    for i in xrange(read_ahead):
+    for i in xrange(self.read_ahead):
       reader = threading.Thread(target=_reader_factory(self))
       reader.daemon = True
       self._readers.append(reader)
