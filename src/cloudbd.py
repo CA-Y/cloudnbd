@@ -47,14 +47,12 @@ def main():
   )
   _add_backend_args(parser_a)
   _add_name_args(parser_a)
-  _add_close_cow_args(parser_a)
 
   # closeall arguments
   parser_a = subparsers.add_parser(
     'closeall',
     help='close all open volumes'
   )
-  _add_close_cow_args(parser_a)
 
   # delete arguments
   parser_a = subparsers.add_parser(
@@ -114,11 +112,6 @@ def main():
   _add_size_args(parser_a)
   _add_server_args(parser_a)
   _add_auth_args(parser_a)
-  parser_a.add_argument(
-    '-c', '--cow',
-    action='store_true',
-    help="COW all the changes to the volume"
-  )
   parser_a.add_argument(
     '-t', '--threads',
     type=int,
@@ -207,17 +200,6 @@ def _add_name_args(parser):
     metavar='<volume>',
     type=unicode,
     help="name of the volume"
-  )
-
-def _add_close_cow_args(parser):
-  """Add close COW arguments to the parser."""
-  parser.add_argument(
-    '--cow', '-c',
-    metavar='<action>',
-    choices=['discard', 'apply'],
-    help="action to take for the outstanding COW data"
-         " - use 'apply' to merge the COW data to the volume"
-         ", or use 'discard' to drop all the changes"
   )
 
 def _add_size_args(parser, as_arg = False):

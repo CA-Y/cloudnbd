@@ -103,7 +103,6 @@ class OpenCMD(object):
 
   def run(self):
 
-
     # check our access to Bridge
 
     try:
@@ -116,7 +115,8 @@ class OpenCMD(object):
     self.blocktree = cloudnbd.blocktree.BlockTree(
       pass_key=self.pass_key,
       cloud=self.cloud,
-      threads=self.args.threads
+      threads=self.args.threads,
+      read_ahead=self.args.read_ahead
     )
     self.blocktree.read_ahead = self.args.read_ahead
 
@@ -255,7 +255,7 @@ class OpenCMD(object):
       # start the readers/writers workers on blocktree
 
       self.blocktree.start_writers()
-      # self.blocktree.start_readers()
+      self.blocktree.start_readers()
 
       # start NBD server
 
