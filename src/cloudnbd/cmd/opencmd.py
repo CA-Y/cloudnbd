@@ -252,6 +252,12 @@ class OpenCMD(object):
         self._stat_thread.daemon = True
         self._stat_thread.start()
 
+      # clone the cloud instance if running in daemon mode
+      # XXX this is very hackick, find a better way
+
+      if not self.args.foreground:
+        self.blocktree.cloud = self.blocktree.cloud.clone()
+
       # start the readers/writers workers on blocktree
 
       self.blocktree.start_writers()
