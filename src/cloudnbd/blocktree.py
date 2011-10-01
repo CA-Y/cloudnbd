@@ -95,38 +95,34 @@ class BlockTree(object):
     self._stats_lock = threading.RLock()
     self._stats = {'recv_count': 0, 'data_recv': 0, 'wire_recv': 0,
                    'sent_count': 0, 'data_sent': 0, 'wire_sent': 0}
-    self.read_ahead = 0
-    self.threads = threads
-    self.cow = False
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.cloud = cloud
     self._cache = cloudnbd.Cache(backercb=self._cache_read_cb)
     # initialize the writer threads
     self._writers_active = False
+    self.threads = threads
+    # initialize the readahead threads
+    self._readers_active = False
+    self._read_ahead = read_ahead
+
+  def start_writers(self):
     self._writers = []
-    for i in xrange(threads):
+    for i in xrange(self.threads):
       writer = threading.Thread(target=_writer_factory(self))
       writer.daemon = True
       self._writers.append(writer)
-    # initialize the readahead threads
-    self._readers_active = False
+      writer.start()
+    self._writers_active = True
+
+  def start_readers(self):
     self._read_queue = cloudnbd.SyncQueue()
-    self._read_ahead = read_ahead
     self._readers = []
     for i in xrange(read_ahead):
       reader = threading.Thread(target=_reader_factory(self))
       reader.daemon = True
       self._readers.append(reader)
-
-  def start_writers(self):
-    for w in self._writers:
-      w.start()
-    self._writers_active = True
-
-  def start_readers(self):
-    for r in self._readers:
-      r.start()
+      reader.start()
     self._readers_active = True
 
   def get_stats(self):
@@ -210,12 +206,6 @@ class BlockTree(object):
     encryptor = AES.new(key, AES.MODE_CBC, iv)
     data = encryptor.encrypt(data)
     return header + data
-
-  def _cow_path(self, path):
-    if self.cow and path.startswith('blocks/'):
-      return 'cow' + path
-    else:
-      return path
 
   def get(self, path):
     """Get the value of an object."""
