@@ -113,6 +113,7 @@ class SyncQueue(object):
   def push(self, v):
     with self._lock:
       if v not in self._items:
+        self._items.add(v)
         self._queue.append(v)
         self._wait.notify()
 
@@ -148,7 +149,6 @@ class Cache(dict):
     self._set_wait = threading.Condition(self._lock)
     self._dequeue_wait = threading.Condition(self._lock)
     self._wait_on_empty = True
-    self._stats = {'queue_size': 0, 'cache_size': 0}
 
   def __contains__(self, key):
     with self._lock:
@@ -182,7 +182,6 @@ class Cache(dict):
         for k in unqueued:
           del self._ts[k]
           del self[k]
-      self._stats['cache_size'] = len(self._queue)
 
   def __setitem__(self, key, value):
     with self._lock:
@@ -194,7 +193,6 @@ class Cache(dict):
       if key in self._queue:
         self._queue.remove(key)
       self._queue.append(key)
-      self._stats['queue_size'] = len(self._queue)
       self._trim()
       if len(self._queue) == self.queue_size:
         self._dequeue_wait.notify_all()
@@ -203,7 +201,6 @@ class Cache(dict):
     for i, key in zip(xrange(len(self._queue)), self._queue):
       if key not in self._pinned:
         self._queue.pop(i)
-        self._stats['queue_size'] = len(self._queue)
         self._pinned.add(key)
         self._set_wait.notify_all()
         return key
@@ -246,7 +243,10 @@ class Cache(dict):
 
   def get_stats(self):
     with self._lock:
-      return dict(self._stats)
+      return {
+        'cache_size': super(Cache, self).__len__(),
+        'queue_size': len(self._queue)
+      }
 
 from cloudnbd import cmd
 from cloudnbd import auth
