@@ -82,6 +82,9 @@ def get_path_comps(path):
   else:
     return None
 
+class Interrupted(Exception):
+  pass
+
 class SerializeFailed(Exception):
   pass
 

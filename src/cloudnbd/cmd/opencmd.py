@@ -103,6 +103,7 @@ class OpenCMD(object):
 
   def run(self):
 
+
     # check our access to Bridge
 
     try:
@@ -274,7 +275,7 @@ class OpenCMD(object):
         if self.args.foreground:
           fatal('process killed - cache discarded')
 
-      except cloudnbd.nbd.NBDInterrupted:
+      except cloudnbd.Interrupted:
         if self.args.foreground:
           print('interrupted')
 
@@ -297,6 +298,17 @@ class OpenCMD(object):
     signal.signal(signal.SIGINT, self.sig_noop_handler)
 
 def main(args):
+
+  # ensure the volume is not already open
+
+  pid_path = cloudnbd.get_pid_path(
+    args.backend,
+    args.bucket,
+    args.volume
+  )
+  if os.path.exists(pid_path):
+    fatal('specified volume is already open')
+
   get_all_creds(args)
   opencmd = OpenCMD(args)
   opencmd.run()

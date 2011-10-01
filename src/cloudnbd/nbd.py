@@ -28,9 +28,6 @@ import threading
 class NBDError(Exception):
   pass
 
-class NBDInterrupted(NBDError):
-  pass
-
 def _default_cb(*args):
   pass
 
@@ -62,7 +59,7 @@ class NBD(object):
       self._run()
     except socket.error as (errno, msg):
       if errno == 4:
-        raise NBDInterrupted()
+        raise cloudnbd.Interrupted()
       else:
         raise
 
@@ -95,7 +92,7 @@ class NBD(object):
         self.closecb()
         return
     if self.interrupted:
-      raise NBDInterrupted()
+      raise cloudnbd.Interrupted()
 
   def _receive(self, sock, length):
     buf = []

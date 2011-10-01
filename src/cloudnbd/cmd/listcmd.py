@@ -36,12 +36,11 @@ def main(args):
       lst.append((path['backend'], path['bucket'], path['volume']))
     except:
       pass
-  if not lst:
-    fatal('there are no open volumes at this time')
-  lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
-  lst = [('[backend]', '[bucket]', '[volume]')] + lst
-  lst_len = map(lambda a: map(lambda b: len(b), a), lst)
-  max_len = map(lambda a: max(*a), map(lambda *r: list(r), *lst_len))
-  fmt = ' '.join(map(lambda a: '%%-%ds' % a, max_len))
-  for i in lst:
-    print(fmt % i)
+  if lst:
+    lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
+    lst = [('[backend]', '[bucket]', '[volume]')] + lst
+    lst_len = map(lambda a: map(lambda b: len(b), a), lst)
+    max_len = map(lambda a: max(*a), map(lambda *r: list(r), *lst_len))
+    fmt = ' '.join(map(lambda a: '%%-%ds' % a, max_len))
+    for i in lst:
+      print(fmt % i)
