@@ -29,13 +29,21 @@ class NBDError(Exception):
   pass
 
 def _default_cb(*args):
-  pass
+  return (0, '')
 
 class NBD(object):
 
-  READ = 0
-  WRITE = 1
-  CLOSE = 2
+  CMD_READ = 0
+  CMD_WRITE = 1
+  CMD_DISC = 2
+  CMD_FLUSH = 3
+  CMD_TRIM = 4
+  FLAG_HAS_FLAGS  = 0b000001
+  FLAG_READ_ONLY  = 0b000010
+  FLAG_SEND_FLUSH = 0b000100
+  FLAG_SEND_FUA   = 0b001000
+  FLAG_ROTATIONAL = 0b010000
+  FLAG_SEND_TRIM  = 0b100000
 
   def __init__(self,
                host = None,
@@ -43,15 +51,24 @@ class NBD(object):
                size = None,
                readcb = _default_cb,
                writecb = _default_cb,
-               closecb = _default_cb):
+               closecb = _default_cb,
+               flushcb = _default_cb,
+               trimcb = _default_cb):
     self.host = host
     self.port = port
     self.size = size
     self.readcb = readcb
     self.writecb = writecb
     self.closecb = closecb
+    self.flushcb = flushcb
+    self.trimcb = trimcb
     self._lock = threading.RLock()
-    self._stats = {'reads': 0, 'writes': 0}
+    self._stats = {
+      NBD.CMD_READ: 0,
+      NBD.CMD_WRITE: 0,
+      NBD.CMD_FLUSH: 0,
+      NBD.CMD_TRIM: 0
+    }
     self.interrupted = False
 
   def run(self):
@@ -69,28 +86,39 @@ class NBD(object):
     self._lsock.bind((self.host, self.port))
     self._lsock.listen(1)
     sock, addr = self._lsock.accept()
+    flags = NBD.FLAG_HAS_FLAGS | NBD.FLAG_SEND_FLUSH \
+          | NBD.FLAG_SEND_TRIM
     sock.send(b'NBDMAGIC\x00\x00\x42\x02\x81\x86\x12\x53' +
-      struct.pack(b'>Q', self.size) + b'\0' * 128)
+      struct.pack(b'>QL', self.size, flags) + b'\0' * 124)
     while not self.interrupted:
       header = self._receive(sock, struct.calcsize(b'>LL8sQL'))
       mag, request, han, off, dlen = struct.unpack(b'>LL8sQL', header)
       if mag != 0x25609513:
         raise NBDError("Invalid NBD magic sent by the client")
-      if request == NBD.READ:
-        with self._lock:
-          self._stats['reads'] += 1
-        sock.send(b'gDf\x98\0\0\0\0' + han)
-        v = self.readcb(off, dlen)
-        sock.send(self.readcb(off, dlen))
-      elif request == NBD.WRITE:
-        with self._lock:
-          self._stats['writes'] += 1
-        self.writecb(off, self._receive(sock, dlen))
-        sock.send(b'gDf\x98\0\0\0\0' + han)
-      elif request == NBD.CLOSE:
+      if request == NBD.CMD_READ:
+        err, data = self.readcb(off, dlen)
+        sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
+        sock.send(data)
+      elif request == NBD.CMD_WRITE:
+        data = self._receive(sock, dlen)
+        err, data = self.writecb(off, data)
+        sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
+      elif request == NBD.CMD_DISC:
         sock.close()
         self.closecb()
         return
+      elif request == NBD.CMD_FLUSH:
+        err, data = self.flushcb(off, dlen)
+        sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
+      elif request == NBD.CMD_TRIM:
+        err, data = self.trimcb(off, dlen)
+        sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
+
+      # update the stats
+
+      with self._lock:
+        self._stats[request] += 1
+
     if self.interrupted:
       raise cloudnbd.Interrupted()
 

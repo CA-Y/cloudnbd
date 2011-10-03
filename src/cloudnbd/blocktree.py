@@ -43,16 +43,21 @@ def _writer_factory(blocktree):
     try:
       while True:
         path, data = blocktree._cache.dequeue()
-        checksum = blocktree._build_checksum(path, data)
-        plain_data_len = len(data)
-        data = blocktree._encrypt_data(path, data)
-        cloud.set(path, data, metadata={'checksum': checksum})
-        with blocktree._stats_lock:
-          blocktree._stats['sent_count'] += 1
-          blocktree._stats['data_sent'] += plain_data_len
-          blocktree._stats['wire_sent'] += len(data)
-        blocktree._cache.unpin(path)
-        del data
+        if data is None:
+          cloud.delete(path)
+          with blocktree._stats_lock:
+            blocktree._stats['deleted_count'] += 1
+        else:
+          checksum = blocktree._build_checksum(path, data)
+          plain_data_len = len(data)
+          data = blocktree._encrypt_data(path, data)
+          cloud.set(path, data, metadata={'checksum': checksum})
+          with blocktree._stats_lock:
+            blocktree._stats['sent_count'] += 1
+            blocktree._stats['data_sent'] += plain_data_len
+            blocktree._stats['wire_sent'] += len(data)
+          blocktree._cache.unpin(path)
+          del data
     except cloudnbd.QueueEmptyError:
       pass
   return writer
@@ -65,7 +70,11 @@ def _reader_factory(blocktree):
         k = blocktree._read_queue.pop()
         if k in blocktree._cache:
           continue
-        value = _indep_get(blocktree, cloud, k)
+        try:
+          value = _indep_get(blocktree, cloud, k)
+        except BTChecksumError:
+          continue # XXX since we're using reader only for read ahead
+                   #     it's ok to ignore checksum issues
         blocktree._cache.set_super_item(k, value)
         blocktree._read_queue.remove(k)
     except cloudnbd.QueueEmptyError:
@@ -89,6 +98,8 @@ def _indep_get(blocktree, cloud, k):
        "remote and calculated checksums for object:%s don't match" % k
       )
     return data
+  else:
+    return None
 
 class BlockTree(object):
   """Interface between cloud and the high level logic."""
@@ -96,7 +107,8 @@ class BlockTree(object):
                threads = 1, read_ahead = 0):
     self._stats_lock = threading.RLock()
     self._stats = {'recv_count': 0, 'data_recv': 0, 'wire_recv': 0,
-                   'sent_count': 0, 'data_sent': 0, 'wire_sent': 0}
+                   'sent_count': 0, 'data_sent': 0, 'wire_sent': 0,
+                   'deleted_count': 0}
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.cloud = cloud
