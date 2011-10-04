@@ -142,13 +142,15 @@ class GS(Bridge):
       time.sleep(1)
 
   def delete(self, path):
+    from boto.exception import GSResponseError
     self._ensure_access()
     while True:
       try:
         self._bucket.delete_key('%s/%s' % (self.volume, path))
         break
-      except:
-        pass
+      except GSResponseError as e:
+        if e.error_code == 'NoSuchKey':
+          break
       time.sleep(1)
 
   def list(self, prefix=''):
