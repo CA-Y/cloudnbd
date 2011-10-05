@@ -66,6 +66,7 @@ class NBD(object):
     self._stats = {
       NBD.CMD_READ: 0,
       NBD.CMD_WRITE: 0,
+      NBD.CMD_DISC: 0,
       NBD.CMD_FLUSH: 0,
       NBD.CMD_TRIM: 0
     }
@@ -90,11 +91,18 @@ class NBD(object):
           | NBD.FLAG_SEND_TRIM
     sock.send(b'NBDMAGIC\x00\x00\x42\x02\x81\x86\x12\x53' +
       struct.pack(b'>QL', self.size, flags) + b'\0' * 124)
+
     while not self.interrupted:
       header = self._receive(sock, struct.calcsize(b'>LL8sQL'))
       mag, request, han, off, dlen = struct.unpack(b'>LL8sQL', header)
       if mag != 0x25609513:
         raise NBDError("Invalid NBD magic sent by the client")
+
+      # update the stats
+
+      with self._lock:
+        self._stats[request] += 1
+
       if request == NBD.CMD_READ:
         err, data = self.readcb(off, dlen)
         sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
@@ -113,11 +121,6 @@ class NBD(object):
       elif request == NBD.CMD_TRIM:
         err, data = self.trimcb(off, dlen)
         sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
-
-      # update the stats
-
-      with self._lock:
-        self._stats[request] += 1
 
     if self.interrupted:
       raise cloudnbd.Interrupted()
