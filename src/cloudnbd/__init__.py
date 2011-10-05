@@ -255,7 +255,9 @@ class Cache(dict):
         self._dequeue_wait.notify_all()
       if self._greedy_dequeue and not self._pinned and not self._queue:
         self._greedy_dequeue = False
+        self._greedy_dequeue_wait_obj.acquire()
         self._greedy_dequeue_wait_obj.notify_all()
+        self._greedy_dequeue_wait_obj.release()
         self._greedy_dequeue_wait_obj = None
 
   def set_wait_on_empty(self, v):
