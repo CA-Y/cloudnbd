@@ -226,6 +226,13 @@ class BlockTree(object):
             self._read_queue.push(ra_k)
     return self._cache[path]
 
+  def flush(self):
+    lock = threading.RLock()
+    wait_obj = threading.Condition(lock)
+    with lock:
+      if self._cache.flush_dirty(wait_obj):
+        wait_obj.wait()
+
   def close(self):
     if self._writers_active:
       self._cache.set_wait_on_empty(False)

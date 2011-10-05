@@ -149,6 +149,7 @@ class Cache(dict):
     self._set_wait = threading.Condition(self._lock)
     self._dequeue_wait = threading.Condition(self._lock)
     self._wait_on_empty = True
+    self._greedy_dequeue = False
 
   def __contains__(self, key):
     with self._lock:
@@ -161,6 +162,21 @@ class Cache(dict):
     except KeyError:
       value = self._backercb(key)
       return self.set_super_item(key, value)
+
+  def flush_dirty(self, wait_obj):
+    """Drain the queue and notify the wait_obj
+
+    Return: True if waiting is necessary, False if the queue is already
+            empty.
+    """
+    with self._lock:
+      if not self._queue and not self._pinned:
+        return False
+      else:
+        self._greedy_dequeue = True
+        self._greedy_dequeue_wait_obj = wait_obj
+        self._dequeue_wait.notify_all()
+        return True
 
   def set_super_item(self, key, value):
     with self._lock:
@@ -210,7 +226,9 @@ class Cache(dict):
     with self._lock:
       while True:
         if self._wait_on_empty:
-          if len(self._queue) < self.flush_size:
+          if (not self._greedy_dequeue
+              and len(self._queue) < self.flush_size) \
+             or (self._greedy_dequeue and not self._queue):
             self._dequeue_wait.wait()
             continue
           else:
@@ -235,6 +253,10 @@ class Cache(dict):
       if key in self._pinned:
         self._pinned.remove(key)
         self._dequeue_wait.notify_all()
+      if self._greedy_dequeue and not self._pinned and not self._queue:
+        self._greedy_dequeue = False
+        self._greedy_dequeue_wait_obj.notify_all()
+        self._greedy_dequeue_wait_obj = None
 
   def set_wait_on_empty(self, v):
     with self._lock:
