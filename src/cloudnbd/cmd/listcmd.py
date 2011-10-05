@@ -28,14 +28,13 @@ from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  paths = filter(lambda a: a['ext'] == 'pid', cloudnbd.get_stat_paths())
+  vol_ids = cloudnbd.get_open_volumes_list()
   lst = []
-  for path in paths:
-    try:
-      pid = int(open(path['path'], 'r').read())
-      lst.append((path['backend'], path['bucket'], path['volume']))
-    except:
-      pass
+  for vid in vol_ids:
+    if cloudnbd.acquire_pid_lock(*vid):
+      cloudnbd.release_pid_lock(*vid)
+    else:
+      lst.append(vid)
   if lst:
     lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
     lst = [('[backend]', '[bucket]', '[volume]')] + lst

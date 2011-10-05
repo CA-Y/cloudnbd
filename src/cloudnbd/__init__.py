@@ -11,6 +11,9 @@ import time
 import threading
 import re
 import glob
+import fcntl
+import os
+import stat
 
 _ver_major = 0
 _ver_minor = 1
@@ -34,15 +37,17 @@ _default_delete_thread_count = 30
 _default_read_ahead_count = 3
 _stat_path = '/tmp/' + _prog_name + ':%s:%s:%s:%s'
 _stat_pat = re.compile(
-  r'/' + _prog_name + r':([^:]+):([^:]+):([^:]+):(.+)$'
+  r'/' + _prog_name + r':([^:]+):([^:]+):([^:]+):pid$'
 )
-_stat_glob = '/tmp/' + _prog_name + ':*:*:*:*'
+_open_volumes_glob = '/tmp/' + _prog_name + ':*:*:*:pid'
 
 _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
         b'\xb9H\xcc\xe4\xf5\x9bs\xc0\xba\xab\xf0\x1b\xb4\xdb\xf6T' \
         b'\xe9\xe2\xc1\xc3R]\xc0\xd1'
 _crypt_magic = b'C10Ud-LiC1ou5'
+
+_locked_pids = {}
 
 def size_to_hum(size):
   if size < 1100:
@@ -58,29 +63,66 @@ def size_to_hum(size):
   else:
     return '%.1f PB' % (size / 1000000000000000)
 
+def acquire_pid_lock(backend, bucket, volume):
+  """Attempt to acquire pid lock. Return True if successfully acquired,
+  False otherwise.
+  """
+  fp = open(get_pid_path(backend, bucket, volume), 'w')
+  try:
+    fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+  except IOError:
+    return False
+  _locked_pids[(backend, bucket, volume)] = fp
+  return True
+
+def release_pid_lock(backend, bucket, volume):
+  """Release an already acquired pid lock. Return True if successfully
+  release, False otherwise.
+  """
+  k = (backend, bucket, volume)
+  if k in _locked_pids:
+    os.unlink(get_pid_path(backend, bucket, volume))
+    _locked_pids[k].close()
+    del _locked_pids[k]
+    return True
+  return False
+
+def release_all_pid_locks():
+  for backend, bucket, volume in list(_locked_pids.keys()):
+    release_pid_lock(backend, bucket, volume)
+
+def create_stat_node(backend, bucket, volume):
+  destroy_stat_node(backend, bucket, volume)
+  p = get_stat_path(backend, bucket, volume)
+  try:
+    os.mknod(p, 0644 | stat.S_IFIFO)
+  except:
+    return False
+  return True
+
+def destroy_stat_node(backend, bucket, volume):
+  try:
+    os.unlink(get_stat_path(backend, bucket, volume))
+  except:
+    return False
+  return True
+
 def get_stat_path(backend, bucket, volume):
   return _stat_path % (backend, bucket, volume, 'stat')
 
 def get_pid_path(backend, bucket, volume):
   return _stat_path % (backend, bucket, volume, 'pid')
 
-def get_stat_paths():
-  file_list = glob.glob(_stat_glob)
-  file_list = map(get_path_comps, file_list)
+def get_open_volumes_list():
+  file_list = glob.glob(_open_volumes_glob)
+  file_list = map(get_vol_id_for_path, file_list)
   return filter(lambda a: a is not None, file_list)
 
-def get_path_comps(path):
+def get_vol_id_for_path(path):
   m = _stat_pat.search(path)
   if m:
-    return {
-      'backend': m.group(1),
-      'bucket': m.group(2),
-      'volume': m.group(3),
-      'ext': m.group(4),
-      'path': path
-    }
-  else:
-    return None
+    return (m.group(1), m.group(2), m.group(3))
+  return None
 
 class Interrupted(Exception):
   pass

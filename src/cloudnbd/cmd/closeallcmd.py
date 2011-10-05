@@ -27,11 +27,12 @@ from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  paths = filter(lambda a: a['ext'] == 'pid', cloudnbd.get_stat_paths())
-  for p in paths:
-    try:
-      pid = os.kill(int(open(p['path'], 'r').read()), signal.SIGINT)
-      print('%s %s %s -> closing'
-            % (p['backend'], p['bucket'], p['volume']))
-    except:
-      pass
+  vol_ids = cloudnbd.get_open_volumes_list()
+  for vid in vol_ids:
+    if cloudnbd.acquire_pid_lock(*vid):
+      cloudnbd.release_pid_lock(*vid)
+      cloudnbd.destroy_stat_node(*vid)
+    else:
+      pid = int(open(cloudnbd.get_pid_path(*vid), 'r').read())
+      os.kill(pid, signal.SIGINT)
+      print('%s %s %s -> closing' % vid)
