@@ -20,19 +20,19 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import os
 import signal
-from cloudnbd.cmd import fatal, warning, info, get_all_creds
+from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  vol_ids = cloudnbd.get_open_volumes_list()
+  vol_ids = cnbdcore.get_open_volumes_list()
   for vid in vol_ids:
-    if cloudnbd.acquire_pid_lock(*vid):
-      cloudnbd.release_pid_lock(*vid)
-      cloudnbd.destroy_stat_node(*vid)
+    if cnbdcore.acquire_pid_lock(*vid):
+      cnbdcore.release_pid_lock(*vid)
+      cnbdcore.destroy_stat_node(*vid)
     else:
-      pid = int(open(cloudnbd.get_pid_path(*vid), 'r').read())
+      pid = int(open(cnbdcore.get_pid_path(*vid), 'r').read())
       os.kill(pid, signal.SIGINT)
       print('%s %s %s -> closing' % vid)

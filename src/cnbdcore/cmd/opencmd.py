@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import os
 import stat
 import threading
@@ -28,8 +28,8 @@ import time
 import signal
 import sys
 import errno
-from cloudnbd import nbd
-from cloudnbd.cmd import fatal, warning, info, get_all_creds
+from cnbdcore import nbd
+from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 class KillInterrupt(Exception):
   pass
@@ -39,7 +39,7 @@ class OpenCMD(object):
   def __init__(self, args):
     self._serve_stat = False
     self.args = args
-    self.cloud = cloudnbd.cloud.backends[args.backend](
+    self.cloud = cnbdcore.cloud.backends[args.backend](
       access_key=args.access_key,
       bucket=args.bucket,
       volume=args.volume
@@ -65,7 +65,7 @@ class OpenCMD(object):
   def nbd_readcb(self, off, length):
     try:
       return (0, self._nbd_readcb_helper(off, length))
-    except cloudnbd.blocktree.BTChecksumError:
+    except cnbdcore.blocktree.BTChecksumError:
       return (errno.EIO, '') # XXX a better error code out there?
 
   def _nbd_readcb_helper(self, off, length):
@@ -127,12 +127,12 @@ class OpenCMD(object):
 
     try:
       self.cloud.check_access()
-    except (cloudnbd.cloud.BridgeAccessDenied,
-            cloudnbd.cloud.BridgeNoSuchBucket) as e:
+    except (cnbdcore.cloud.BridgeAccessDenied,
+            cnbdcore.cloud.BridgeNoSuchBucket) as e:
       fatal(e.args[0])
 
-    self.pass_key = cloudnbd.auth.get_pass_key(self.args.passphrase)
-    self.blocktree = cloudnbd.blocktree.BlockTree(
+    self.pass_key = cnbdcore.auth.get_pass_key(self.args.passphrase)
+    self.blocktree = cnbdcore.blocktree.BlockTree(
       pass_key=self.pass_key,
       cloud=self.cloud,
       threads=self.args.threads,
@@ -147,13 +147,13 @@ class OpenCMD(object):
       if not config:
         fatal("volume with name '%s' does not exist in bucket '%s'"
               % (self.args.volume, self.args.bucket))
-    except cloudnbd.blocktree.BTInvalidKey:
+    except cnbdcore.blocktree.BTInvalidKey:
       fatal("decryption of config failed, most likely wrong"
             " passphrase supplied")
 
     # load the config
 
-    self.config = cloudnbd.deserialize(config)
+    self.config = cnbdcore.deserialize(config)
 
     # ensure the volume is not being deleted
 
@@ -169,10 +169,10 @@ class OpenCMD(object):
 
     total_cache = self.args.max_cache // self.config['bs']
     write_cache = (self.args.max_cache *
-      cloudnbd._write_to_total_cache_ratio) // self.config['bs']
+      cnbdcore._write_to_total_cache_ratio) // self.config['bs']
     flush_cache = (self.args.max_cache *
-      cloudnbd._write_to_total_cache_ratio *
-      cloudnbd._write_queue_to_flush_ratio) // self.config['bs']
+      cnbdcore._write_to_total_cache_ratio *
+      cnbdcore._write_queue_to_flush_ratio) // self.config['bs']
     if total_cache < 1: total_cache = 1
     if write_cache < 1: write_cache = 1
     if flush_cache < 1: flush_cache = 1
@@ -196,59 +196,47 @@ class OpenCMD(object):
     # fork the process
 
     if not self.args.foreground:
-      cloudnbd.daemon.createDaemon()
+      cnbdcore.daemon.createDaemon()
 
     # setup a unix socket for stat communication and pid file
 
-    self._stat_path = cloudnbd.get_stat_path(
-      self.args.backend, self.args.bucket, self.args.volume)
-    self._pid_path = cloudnbd.get_pid_path(
-      self.args.backend, self.args.bucket, self.args.volume)
-
-    def create_stat():
-      if os.path.exists(self._stat_path):
-        os.unlink(self._stat_path)
-      os.mknod(self._stat_path, 0644 | stat.S_IFIFO)
-      self._serve_stat = True
-    def create_pid():
-      open(self._pid_path, 'w').write(str(os.getpid()))
-    def delete_file(path):
-      os.unlink(path)
-    create_stat()
-    self._run_silent(create_stat)
-    self._run_silent(create_pid)
+    self._vol_id = (
+      self.args.backend,
+      self.args.bucket,
+      self.args.volume
+    )
+    self._serve_stat = cnbdcore.create_stat_node(*self._vol_id)
 
     try:
       self._run()
     finally:
-      self._run_silent(delete_file, self._stat_path)
-      self._run_silent(delete_file, self._pid_path)
+      cnbdcore.destroy_stat_node(*self._vol_id)
 
   def _stat_server_worker(self):
     while True:
       try:
-        f = open(self._stat_path, 'w')
+        f = open(cnbdcore.get_stat_path(*self._vol_id), 'w')
         rstats = self.blocktree.get_stats()
         nbdstats = self.nbd.get_stats()
         stats = {}
-        stats['nbd-reads'] = nbdstats[cloudnbd.nbd.NBD.CMD_READ]
-        stats['nbd-writes'] = nbdstats[cloudnbd.nbd.NBD.CMD_WRITE]
-        stats['nbd-flushes'] = nbdstats[cloudnbd.nbd.NBD.CMD_FLUSH]
-        stats['nbd-trims'] = nbdstats[cloudnbd.nbd.NBD.CMD_TRIM]
-        stats['cache-used'] = cloudnbd.size_to_hum(
+        stats['nbd-reads'] = nbdstats[cnbdcore.nbd.NBD.CMD_READ]
+        stats['nbd-writes'] = nbdstats[cnbdcore.nbd.NBD.CMD_WRITE]
+        stats['nbd-flushes'] = nbdstats[cnbdcore.nbd.NBD.CMD_FLUSH]
+        stats['nbd-trims'] = nbdstats[cnbdcore.nbd.NBD.CMD_TRIM]
+        stats['cache-used'] = cnbdcore.size_to_hum(
           rstats['cache_size'] * self.config['bs']
         )
-        stats['cache-dirty'] = cloudnbd.size_to_hum(
+        stats['cache-dirty'] = cnbdcore.size_to_hum(
           rstats['queue_size'] * self.config['bs']
         )
-        stats['cache-limit'] = cloudnbd.size_to_hum(self.args.max_cache)
+        stats['cache-limit'] = cnbdcore.size_to_hum(self.args.max_cache)
         stats['deleted-reqs'] = str(rstats['deleted_count'])
         stats['sent-reqs'] = str(rstats['sent_count'])
         stats['recv-reqs'] = str(rstats['recv_count'])
-        stats['sent-data'] = cloudnbd.size_to_hum(rstats['data_sent'])
-        stats['recv-data'] = cloudnbd.size_to_hum(rstats['data_recv'])
-        stats['sent-actual'] = cloudnbd.size_to_hum(rstats['wire_sent'])
-        stats['recv-actual'] = cloudnbd.size_to_hum(rstats['wire_recv'])
+        stats['sent-data'] = cnbdcore.size_to_hum(rstats['data_sent'])
+        stats['recv-data'] = cnbdcore.size_to_hum(rstats['data_recv'])
+        stats['sent-actual'] = cnbdcore.size_to_hum(rstats['wire_sent'])
+        stats['recv-actual'] = cnbdcore.size_to_hum(rstats['wire_recv'])
         stats['status'] = self._status
         stats['socket'] = '%s:%d' % (self.args.bind_address,
                                      self.args.port)
@@ -260,7 +248,7 @@ class OpenCMD(object):
         f.flush()
         f.close()
       except:
-        pass
+        raise
       time.sleep(0.5)
 
   def _run(self):
@@ -304,7 +292,7 @@ class OpenCMD(object):
         if self.args.foreground:
           fatal('process killed - cache discarded')
 
-      except cloudnbd.Interrupted:
+      except cnbdcore.Interrupted:
         if self.args.foreground:
           print('interrupted')
 
@@ -330,14 +318,12 @@ def main(args):
 
   # ensure the volume is not already open
 
-  pid_path = cloudnbd.get_pid_path(
-    args.backend,
-    args.bucket,
-    args.volume
-  )
-  if os.path.exists(pid_path):
+  vol_id = (args.backend, args.bucket, args.volume)
+  if not cnbdcore.acquire_pid_lock(*vol_id):
     fatal('specified volume is already open')
-
-  get_all_creds(args)
-  opencmd = OpenCMD(args)
-  opencmd.run()
+  try:
+    get_all_creds(args)
+    opencmd = OpenCMD(args)
+    opencmd.run()
+  finally:
+    cnbdcore.release_pid_lock(*vol_id)

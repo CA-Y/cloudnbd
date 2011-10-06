@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# listcmd.py - List the currently open volumes
+# closecmd.py - Close a currently open volume
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,26 +20,22 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import os
-import sys
-import glob
-from cloudnbd.cmd import fatal, warning, info, get_all_creds
+import signal
+from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  vol_ids = cloudnbd.get_open_volumes_list()
-  lst = []
-  for vid in vol_ids:
-    if cloudnbd.acquire_pid_lock(*vid):
-      cloudnbd.release_pid_lock(*vid)
-    else:
-      lst.append(vid)
-  if lst:
-    lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
-    lst = [('[backend]', '[bucket]', '[volume]')] + lst
-    lst_len = map(lambda a: map(lambda b: len(b), a), lst)
-    max_len = map(lambda a: max(*a), map(lambda *r: list(r), *lst_len))
-    fmt = ' '.join(map(lambda a: '%%-%ds' % a, max_len))
-    for i in lst:
-      print(fmt % i)
+  vid = (args.backend, args.bucket, args.volume)
+  if cnbdcore.acquire_pid_lock(*vid):
+    cnbdcore.release_pid_lock(*vid)
+    cnbdcore.destroy_stat_node(*vid)
+    fatal('the given volume is not open - use \'%s list\' to see'
+          ' list of currently open volumes' % cnbdcore._prog_name)
+  else:
+    open(cnbdcore.get_pid_path(*vid), 'r')
+    return
+    pid = int(open(cnbdcore.get_pid_path(*vid), 'r').read())
+    os.kill(pid, signal.SIGINT)
+    print('%s %s %s -> closing' % vid)

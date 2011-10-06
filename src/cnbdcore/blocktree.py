@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import os
 import struct
 import zlib
@@ -58,7 +58,7 @@ def _writer_factory(blocktree):
             blocktree._stats['wire_sent'] += len(data)
         blocktree._cache.unpin(path)
         del data
-    except cloudnbd.QueueEmptyError:
+    except cnbdcore.QueueEmptyError:
       pass
   return writer
 
@@ -77,7 +77,7 @@ def _reader_factory(blocktree):
                    #     it's ok to skip over checksum issues
         blocktree._cache.set_super_item(k, value)
         blocktree._read_queue.remove(k)
-    except cloudnbd.QueueEmptyError:
+    except cnbdcore.QueueEmptyError:
       pass
   return reader
 
@@ -113,7 +113,7 @@ class BlockTree(object):
     self.pass_key = pass_key
     self.crypt_key = crypt_key
     self.cloud = cloud
-    self._cache = cloudnbd.Cache(backercb=self._cache_read_cb)
+    self._cache = cnbdcore.Cache(backercb=self._cache_read_cb)
     # initialize the writer threads
     self._writers_active = False
     self.threads = threads
@@ -132,7 +132,7 @@ class BlockTree(object):
 
   def start_readers(self):
     if self.read_ahead > 0:
-      self._read_queue = cloudnbd.SyncQueue()
+      self._read_queue = cnbdcore.SyncQueue()
       self._readers = []
       for i in xrange(self.read_ahead):
         reader = threading.Thread(target=_reader_factory(self))
@@ -167,7 +167,7 @@ class BlockTree(object):
   def _build_checksum(self, path, data):
     """Calculate the checksum for given path anda data."""
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.sha256(cloudnbd._salt + key
+    hasher = hashlib.sha256(cnbdcore._salt + key
       + path.encode('utf8') + (b'' if data is None else data))
     return hasher.hexdigest()
 
@@ -178,14 +178,14 @@ class BlockTree(object):
     zipped, size = struct.unpack_from(b'!BQ', data, 0)
     data = data[struct.calcsize(b'!BQ'):]
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.md5(cloudnbd._salt + path.encode('utf8'))
+    hasher = hashlib.md5(cnbdcore._salt + path.encode('utf8'))
     iv = hasher.digest()
     decryptor = AES.new(key, AES.MODE_CBC, iv)
     data = decryptor.decrypt(data)
     data = data[:size]
-    magic_len = len(cloudnbd._crypt_magic)
+    magic_len = len(cnbdcore._crypt_magic)
     magic = data[-magic_len:]
-    if magic != cloudnbd._crypt_magic:
+    if magic != cnbdcore._crypt_magic:
       raise BTInvalidKey("decryption of '%s' failed possibly due to"
                          " invalid encryption key (or passphrase)"
                          % path)
@@ -204,11 +204,11 @@ class BlockTree(object):
       data = zipped
     else:
       storezip = 0
-    data += cloudnbd._crypt_magic
+    data += cnbdcore._crypt_magic
     header = struct.pack(b'!BQ', storezip, len(data))
     data = data.ljust((len(data) // 32 + 1) * 32, b'\0')
     key = self.pass_key if path == 'config' else self.crypt_key
-    hasher = hashlib.md5(cloudnbd._salt + path.encode('utf8'))
+    hasher = hashlib.md5(cnbdcore._salt + path.encode('utf8'))
     iv = hasher.digest()
     encryptor = AES.new(key, AES.MODE_CBC, iv)
     data = encryptor.encrypt(data)

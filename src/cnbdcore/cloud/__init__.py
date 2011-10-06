@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import time
 import threading
 
@@ -80,7 +80,7 @@ class Bridge(object):
   def list(self, prefix):
     raise NotImplementedError('abstract class')
 
-from cloudnbd.cloud import gs
+from cnbdcore.cloud import gs
 
 backends = {
   'gs': gs.GS,

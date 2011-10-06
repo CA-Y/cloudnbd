@@ -20,18 +20,18 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import os
 import tempfile
 import sys
 import threading
-from cloudnbd import nbd
-from cloudnbd.cmd import fatal, warning, info, get_all_creds
+from cnbdcore import nbd
+from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 class DeleteCMD(object):
   def __init__(self, args):
     self.args = args
-    self.cloud = cloudnbd.cloud.backends[args.backend](
+    self.cloud = cnbdcore.cloud.backends[args.backend](
       access_key=args.access_key,
       bucket=args.bucket,
       volume=args.volume
@@ -43,12 +43,12 @@ class DeleteCMD(object):
 
     try:
       self.cloud.check_access()
-    except (cloudnbd.cloud.BridgeAccessDenied,
-            cloudnbd.cloud.BridgeNoSuchBucket) as e:
+    except (cnbdcore.cloud.BridgeAccessDenied,
+            cnbdcore.cloud.BridgeNoSuchBucket) as e:
       fatal(e.args[0])
 
-    self.pass_key = cloudnbd.auth.get_pass_key(self.args.passphrase)
-    self.blocktree = cloudnbd.blocktree.BlockTree(
+    self.pass_key = cnbdcore.auth.get_pass_key(self.args.passphrase)
+    self.blocktree = cnbdcore.blocktree.BlockTree(
       pass_key=self.pass_key,
       cloud=self.cloud,
       threads=1
@@ -61,13 +61,13 @@ class DeleteCMD(object):
       if not config:
         fatal("volume with name '%s' does not exist in bucket '%s'"
               % (self.args.volume, self.args.bucket))
-    except cloudnbd.blocktree.BTInvalidKey:
+    except cnbdcore.blocktree.BTInvalidKey:
       fatal("decryption of config failed, most likely wrong"
             " passphrase supplied")
 
     # load the config and get the encryption key
 
-    self.config = cloudnbd.deserialize(config)
+    self.config = cnbdcore.deserialize(config)
 
     # confirm with the user if they're really sure
 
@@ -80,7 +80,7 @@ class DeleteCMD(object):
         if raw_input('To continue, type yes in uppercase: ') != 'YES':
           fatal('delete aborted')
       self.config['deleted'] = True
-      self.blocktree.set('config', cloudnbd.serialize(self.config),
+      self.blocktree.set('config', cnbdcore.serialize(self.config),
                          direct=True)
 
     # store the block number of all blocks to a file to avoid concurrent

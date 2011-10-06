@@ -20,15 +20,15 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import os
-from cloudnbd import nbd
-from cloudnbd.cmd import fatal, warning, info, get_all_creds
+from cnbdcore import nbd
+from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 class InfoCMD(object):
   def __init__(self, args):
     self.args = args
-    self.cloud = cloudnbd.cloud.backends[args.backend](
+    self.cloud = cnbdcore.cloud.backends[args.backend](
       access_key=args.access_key,
       bucket=args.bucket,
       volume=args.volume
@@ -40,12 +40,12 @@ class InfoCMD(object):
 
     try:
       self.cloud.check_access()
-    except (cloudnbd.cloud.BridgeAccessDenied,
-            cloudnbd.cloud.BridgeNoSuchBucket) as e:
+    except (cnbdcore.cloud.BridgeAccessDenied,
+            cnbdcore.cloud.BridgeNoSuchBucket) as e:
       fatal(e.args[0])
 
-    self.pass_key = cloudnbd.auth.get_pass_key(self.args.passphrase)
-    self.blocktree = cloudnbd.blocktree.BlockTree(
+    self.pass_key = cnbdcore.auth.get_pass_key(self.args.passphrase)
+    self.blocktree = cnbdcore.blocktree.BlockTree(
       pass_key=self.pass_key,
       cloud=self.cloud,
       threads=1
@@ -58,13 +58,13 @@ class InfoCMD(object):
       if not config:
         fatal("volume with name '%s' does not exist in bucket '%s'"
               % (self.args.volume, self.args.bucket))
-    except cloudnbd.blocktree.BTInvalidKey:
+    except cnbdcore.blocktree.BTInvalidKey:
       fatal("decryption of config failed, most likely wrong"
             " passphrase supplied")
 
     # load the config and get the encryption key
 
-    self.config = cloudnbd.deserialize(config)
+    self.config = cnbdcore.deserialize(config)
 
     # ensure the volume is not being deleted
 
@@ -74,9 +74,9 @@ class InfoCMD(object):
     # print the relevant info to standard output
 
     print('size:         %s' \
-      % cloudnbd.size_to_hum(self.config['size']))
+      % cnbdcore.size_to_hum(self.config['size']))
     print('block size:   %s' \
-      % cloudnbd.size_to_hum(self.config['bs']))
+      % cnbdcore.size_to_hum(self.config['bs']))
 
 def main(args):
   get_all_creds(args)

@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cloudnbd
+import cnbdcore
 import struct
 import socket
 import threading
@@ -77,7 +77,7 @@ class NBD(object):
       self._run()
     except socket.error as (errno, msg):
       if errno == 4:
-        raise cloudnbd.Interrupted()
+        raise cnbdcore.Interrupted()
       else:
         raise
 
@@ -123,7 +123,7 @@ class NBD(object):
         sock.send(struct.pack(b'>4sL8s', b'gDf\x98', err, han))
 
     if self.interrupted:
-      raise cloudnbd.Interrupted()
+      raise cnbdcore.Interrupted()
 
   def _receive(self, sock, length):
     buf = []
