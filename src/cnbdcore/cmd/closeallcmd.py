@@ -23,10 +23,12 @@ from __future__ import division
 import cnbdcore
 import os
 import signal
+import time
 from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
+  open_vols = []
   vol_ids = cnbdcore.get_open_volumes_list()
   for vid in vol_ids:
     if cnbdcore.acquire_pid_lock(*vid):
@@ -36,3 +38,8 @@ def main(args):
       pid = int(open(cnbdcore.get_pid_path(*vid), 'r').read())
       os.kill(pid, signal.SIGINT)
       print('%s %s -> closing' % vid)
+      open_vols.append(vid)
+  for vid in open_vols:
+    while not cnbdcore.acquire_pid_lock(*vid):
+      time.sleep(0.5)
+    cnbdcore.release_pid_lock(*vid)

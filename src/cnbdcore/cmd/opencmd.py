@@ -193,17 +193,27 @@ class OpenCMD(object):
 
     self.empty_block = b'\x00' * self.config['bs']
 
-    # fork the process
-
-    if not self.args.foreground:
-      cnbdcore.daemon.createDaemon()
-
-    # setup a unix socket for stat communication and pid file
+    # volume id for lock/stat related stuff
 
     self._vol_id = (
       self.args.backend,
       self.args.volume
     )
+
+    # fork the process
+
+    if not self.args.foreground:
+      cnbdcore.release_pid_lock(*self._vol_id)
+      cnbdcore.daemon.createDaemon()
+      # re-acquire the lock as soon as fork is done
+      # FIXME we have a race condition here - if someone acquires the
+      #       lock at this very moment, our daemon will fail and that
+      #       will suck
+      if not cnbdcore.acquire_pid_lock(*self._vol_id):
+        exit(1)
+
+    # setup a unix socket for stat communication and pid file
+
     self._serve_stat = cnbdcore.create_stat_node(*self._vol_id)
 
     try:

@@ -23,6 +23,7 @@ from __future__ import division
 import cnbdcore
 import os
 import signal
+import time
 from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
@@ -36,4 +37,7 @@ def main(args):
   else:
     pid = int(open(cnbdcore.get_pid_path(*vid), 'r').read())
     os.kill(pid, signal.SIGINT)
-    print('%s %s -> closing' % vid)
+    # wait till it's dead
+    while not cnbdcore.acquire_pid_lock(*vid):
+      time.sleep(0.5)
+    cnbdcore.release_pid_lock(*vid)
