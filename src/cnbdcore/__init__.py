@@ -14,6 +14,7 @@ import glob
 import fcntl
 import os
 import stat
+from hashlib import md5
 
 _ver_major = 0
 _ver_minor = 1
@@ -34,12 +35,10 @@ _write_to_total_cache_ratio = 0.5
 _write_queue_to_flush_ratio = 0.7
 _default_write_thread_count = 10
 _default_delete_thread_count = 30
-_default_read_ahead_count = 3
-_stat_path = '/tmp/' + _prog_name + ':%s:%s:%s:%s'
-_stat_pat = re.compile(
-  r'/' + _prog_name + r':([^:]+):([^:]+):([^:]+):pid$'
-)
-_open_volumes_glob = '/tmp/' + _prog_name + ':*:*:*:pid'
+_default_read_ahead_count = 5
+_stat_path = '/tmp/' + _prog_name + ':%s:%s:%s'
+_pid_pat = re.compile(br'/' + _prog_name + r':([^:]+):([^:]+):pid$')
+_open_volumes_glob = '/tmp/' + _prog_name + ':*:*:pid'
 
 _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\x9d2&\xe5\x14<O\x0b\xabyF[\xea\xdcA\xc8\\\x8c\xaez&\xf8' \
@@ -63,55 +62,55 @@ def size_to_hum(size):
   else:
     return '%.1f PB' % (size / 1000000000000000)
 
-def acquire_pid_lock(backend, bucket, volume):
+def acquire_pid_lock(backend, volume):
   """Attempt to acquire pid lock. Return True if successfully acquired,
   False otherwise.
   """
-  fp = open(get_pid_path(backend, bucket, volume), 'w')
+  fp = open(get_pid_path(backend, volume), 'w')
   try:
     fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
   except IOError:
     return False
-  _locked_pids[(backend, bucket, volume)] = fp
+  _locked_pids[(backend, volume)] = fp
   return True
 
-def release_pid_lock(backend, bucket, volume):
+def release_pid_lock(backend, volume):
   """Release an already acquired pid lock. Return True if successfully
   release, False otherwise.
   """
-  k = (backend, bucket, volume)
+  k = (backend, volume)
   if k in _locked_pids:
-    os.unlink(get_pid_path(backend, bucket, volume))
+    os.unlink(get_pid_path(backend, volume))
     _locked_pids[k].close()
     del _locked_pids[k]
     return True
   return False
 
 def release_all_pid_locks():
-  for backend, bucket, volume in list(_locked_pids.keys()):
-    release_pid_lock(backend, bucket, volume)
+  for backend, volume in list(_locked_pids.keys()):
+    release_pid_lock(backend, volume)
 
-def create_stat_node(backend, bucket, volume):
-  destroy_stat_node(backend, bucket, volume)
-  p = get_stat_path(backend, bucket, volume)
+def create_stat_node(backend, volume):
+  destroy_stat_node(backend, volume)
+  p = get_stat_path(backend, volume)
   try:
     os.mknod(p, 0644 | stat.S_IFIFO)
   except:
     return False
   return True
 
-def destroy_stat_node(backend, bucket, volume):
+def destroy_stat_node(backend, volume):
   try:
-    os.unlink(get_stat_path(backend, bucket, volume))
+    os.unlink(get_stat_path(backend, volume))
   except:
     return False
   return True
 
-def get_stat_path(backend, bucket, volume):
-  return _stat_path % (backend, bucket, volume, 'stat')
+def get_stat_path(backend, volume):
+  return _stat_path % (backend, volume.encode('hex'), 'stat')
 
-def get_pid_path(backend, bucket, volume):
-  return _stat_path % (backend, bucket, volume, 'pid')
+def get_pid_path(backend, volume):
+  return _stat_path % (backend, volume.encode('hex'), 'pid')
 
 def get_open_volumes_list():
   file_list = glob.glob(_open_volumes_glob)
@@ -119,9 +118,9 @@ def get_open_volumes_list():
   return filter(lambda a: a is not None, file_list)
 
 def get_vol_id_for_path(path):
-  m = _stat_pat.search(path)
+  m = _pid_pat.search(path)
   if m:
-    return (m.group(1), m.group(2), m.group(3))
+    return (m.group(1), m.group(2).decode('hex'))
   return None
 
 class Interrupted(Exception):

@@ -27,7 +27,7 @@ from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  vid = (args.backend, args.bucket, args.volume)
+  vid = (args.backend, args.volume)
   if cnbdcore.acquire_pid_lock(*vid):
     cnbdcore.release_pid_lock(*vid)
     cnbdcore.destroy_stat_node(*vid)

@@ -27,7 +27,7 @@ from cnbdcore.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  path = cnbdcore.get_stat_path(args.backend, args.bucket, args.volume)
+  path = cnbdcore.get_stat_path(args.backend, args.volume)
   try:
     content = open(path, 'r').read()
   except:
