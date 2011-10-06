@@ -1,5 +1,5 @@
 
-s3bd: A network block device with Amazon S3 storage as backend
+cloudnbd: A network block device with cloud storage as backend
 ========================================================================
 
 If you care about your data, you back it up. However, a backup that
@@ -8,47 +8,55 @@ to make sure you backup is immune to physical theft, natural disasters
 and other causes that results in data loss. You also need to ensure
 availability of the data when you need it and its integrity. Now, it's
 hard to come by all these qualities using an external hard drive for
-instance. Amazon S3 storage service however provides all the above at a
-very cheap price. But it doesn't give you the flexibility of a local
-hard disk.
+instance. Cloud storage services such as Google Storage for Developers
+and Amazon S3 however provide all the above at a very cheap price. But
+it doesn't give you the flexibility of a local hard disk.
 
-s3bd is an interface to S3 that acts as a normal block device. You can
-format it using your favorite filesystem or use it in a RAID
-configuration, etc. Below is the list of features:
+cloudnbd is an interface to cloud storage services that acts as a normal
+block device. You can format it using your favorite filesystem or use it
+in a RAID configuration, etc. Below is the list of features:
 
-  * Full integrity in case of network/power failure
+  * Full integrity in case of network/power failure (with appropriate
+    kernel and filesystem support, this integrity will further apply to
+    the state of the FS)
   * Ability to resize a volume after creation
   * Password protection of all data using AES-256 encryption
-  * All data is stored in compressed format on S3 (unless the compressed
-    size is larger than the plain data in which case the plain data is
-    stored)
-  * COW (Copy-On-Write) capability that allows applying/discarding
-    changes to a volume since opening it - this allows atomic changes of
-    any magnitude
-  * No limits on anything!
+  * Change of password after creation without re-encryption of data
+  * All data is stored in compressed format on the cloud (unless the
+    compressed size is larger than the plain data in which case the
+    plain data is stored)
+  * Support for both FLUSH and TRIM NBD commands
 
-s3bd acts as an NBD (Network Block Device) server when run. To create an
-actual linux block device, you need nbd-client which is a part of NBD
-user-space tools (TCP version) which is most likely shipped with your
-distribution.
+cloudnbd acts as an NBD (Network Block Device) server when run. To
+create an actual linux block device, you need nbd-client which is a part
+of NBD user-space tools (TCP version) which is most likely shipped with
+your distribution.
 
-Here's an example of how to create a new volume on S3 (assuming you
-already have a bucket named 'jennyt-mybackup'), format it with btrfs and
-mount it on /mnt:
+Here's an example of how to create a new volume on Google Storage for
+Developers (GS) (assuming you already have a bucket named
+'jennyt-mybackup'), format it with btrfs and mount it on /mnt:
 
-  $ s3bd init jennyt-mybackup photos 20GB
+  $ cloudnbd init gs jennyt-mybackup/photos 20GB
 
-Note that 20GB only tells s3bd what size to report to nbd-client by
-default. It does not actually allocate 20GB on S3.
+Note that 20GB only tells cloudnbd what size to report to nbd-client by
+default. It does not actually allocate 20GB on GS. Also, you will be
+asked for your access key and secret as well as a password to use for
+encryption. 'gs' tells cloudnbd to use Google Storage as the backend.
 
 And now we're ready to format it and mount it locally:
 
-  $ mknod s3block b 43 1
-  $ s3bd open jennyt-mybackup photos -p 12345
-  $ nbd-client localhost 12345 s3block -b 4096
+  $ cloudnbd open gs jennyt-mybackup/photos -p 12345
+  $ modprobe nbd
+  $ nbd-client localhost 12345 /dev/nbd0 -b 4096
 
-That's it. Now the newly created block device 's3block' is ready to be
+That's it. Now the newly created block device '/dev/nbd0' is ready to be
 formatted with FS of your choosing:
 
-  $ mkfs.btrfs s3block
-  $ mount s3block /mnt
+  $ mkfs.btrfs /dev/nbd0
+  $ mount /dev/nbd0 /mnt
+
+When you're done with backing your files up, umount and close the
+cloudnbd volume:
+
+  $ umount /mnt
+  $ cloudnbd close gs jennyt-mybackup/photos
