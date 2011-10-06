@@ -66,12 +66,16 @@ def acquire_pid_lock(backend, volume):
   """Attempt to acquire pid lock. Return True if successfully acquired,
   False otherwise.
   """
-  fp = open(get_pid_path(backend, volume), 'w')
+  fp = open(get_pid_path(backend, volume), 'a+')
   try:
     fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
   except IOError:
     return False
   _locked_pids[(backend, volume)] = fp
+  fp.truncate(0)
+  fp.seek(0)
+  fp.write(str(os.getpid()))
+  fp.flush()
   return True
 
 def release_pid_lock(backend, volume):
