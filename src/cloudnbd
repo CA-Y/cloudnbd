@@ -143,6 +143,21 @@ def main():
     help="run the server in the foreground"
   )
 
+  # passwd arguments
+  parser_a = subparsers.add_parser(
+    'passwd',
+    help='change the password on an existing volume'
+  )
+  _add_backend_args(parser_a)
+  _add_name_args(parser_a)
+  _add_auth_args(parser_a)
+  parser_a.add_argument(
+    '-p', '--new-passphrase',
+    metavar="<passphrase>",
+    type=unicode,
+    help="new passphrase"
+  )
+
   # resize arguments
   parser_a = subparsers.add_parser(
     'resize',
@@ -151,7 +166,7 @@ def main():
   _add_backend_args(parser_a)
   _add_name_args(parser_a)
   _add_auth_args(parser_a)
-  _add_size_args(parser_a)
+  _add_size_args(parser_a, as_arg=True)
   parser_a.add_argument(
     '-u', '--cleanup',
     action='store_true',

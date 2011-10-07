@@ -35,12 +35,20 @@ def info(msg):
   sys.stderr.write("%s:info: %s\n" % (cnbdcore._prog_name, msg))
 
 def get_all_creds(args):
-  if not args.access_key:
+  if args.access_key is None:
     args.access_key = raw_input('access key: ')
-  if not args.secret_key:
+  if args.secret_key is None:
     args.secret_key = getpass.getpass('secret key: ')
-  if not args.passphrase:
+  if args.passphrase is None:
     args.passphrase = getpass.getpass('passphrase: ')
+  if hasattr(args, 'new_passphrase') and args.new_passphrase is None:
+    same = False
+    while not same:
+      args.new_passphrase = getpass.getpass('new passphrase: ')
+      confirm = getpass.getpass('confirm: ')
+      same = args.new_passphrase == confirm
+      if not same:
+        print('PASSWORDS DO NOT MATCH - TRY AGAIN')
 
 from cnbdcore.cmd import initcmd
 from cnbdcore.cmd import closecmd
@@ -50,4 +58,5 @@ from cnbdcore.cmd import opencmd
 from cnbdcore.cmd import listcmd
 from cnbdcore.cmd import statcmd
 from cnbdcore.cmd import infocmd
+from cnbdcore.cmd import passwdcmd
 from cnbdcore.cmd import resizecmd
