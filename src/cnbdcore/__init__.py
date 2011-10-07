@@ -27,6 +27,8 @@ __version__ = '%d.%d.%d%s' % _ver_tuple
 _prog_name = 'cloudnbd'
 _print_ver = '%s %s' % (_prog_name, __version__)
 
+_global_config_path = '/etc/cloudnbd.conf'
+_user_config_path = os.path.expanduser('~/.cloudnbd')
 _default_bs = 2 ** 16
 _default_bind = ''
 _default_port = 7323
@@ -323,3 +325,4 @@ from cnbdcore import cloud
 from cnbdcore import blocktree
 from cnbdcore import nbd
 from cnbdcore import daemon
+from cnbdcore import config
