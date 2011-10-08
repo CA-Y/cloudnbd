@@ -36,6 +36,7 @@ class DeleteCMD(object):
       secret_key=args.secret_key,
       volume=args.volume
     )
+    self.config = None
 
   def run(self):
 
@@ -44,7 +45,7 @@ class DeleteCMD(object):
     try:
       self.cloud.check_access()
     except (cnbdcore.cloud.BridgeAccessDenied,
-            cnbdcore.cloud.BridgeNoSuchBucket) as e:
+            cnbdcore.cloud.BridgeInvalidVolume) as e:
       fatal(e.args[0])
 
     self.pass_key = cnbdcore.auth.get_pass_key(self.args.passphrase)
@@ -56,7 +57,26 @@ class DeleteCMD(object):
 
     # load the config
 
-    self.config = cnbdcore.cmd.load_cloud_config(self.blocktree)
+    try:
+      self.config = self.blocktree.get('config')
+      if self.config is None:
+        if not self.args.yes:
+          fatal("volume with name '%s' does not exist -"
+                " if there are block data left on the cloud and"
+                " you wish to clean them up regardless of"
+                " presense of config object, use --yes option"
+                % (self.blocktree.cloud.volume))
+    except cnbdcore.blocktree.BTDecryptError as e:
+      if not self.args.yes:
+        fatal(e.args[0])
+    if self.config is not None:
+      self.config = cnbdcore.deserialize(self.config)
+
+    # if not config and yes, delete
+
+    if self.args.yes and self.config is None:
+      self.do_delete()
+      return
 
     # confirm with the user if they're really sure
 
@@ -71,6 +91,12 @@ class DeleteCMD(object):
       self.config['deleted'] = True
       self.blocktree.set('config', cnbdcore.serialize(self.config),
                          direct=True)
+
+    # delete away
+
+    self.do_delete()
+
+  def do_delete(self):
 
     # store the block number of all blocks to a file to avoid concurrent
     # access issues
@@ -108,7 +134,6 @@ class DeleteCMD(object):
 
     self.cloud.delete('config')
     print("volume '%s' is completely deleted" % self.args.volume)
-
 
   def _get_blocks_to_delete(self):
     for l in self._cachefile:

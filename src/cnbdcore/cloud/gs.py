@@ -69,7 +69,7 @@ class GS(Bridge):
       self._bucket = self._conn.get_bucket(self._gsbucket)
     except GSResponseError as e:
       if e.error_code == 'NoSuchBucket':
-        raise BridgeNoSuchBucket('Invalid bucket name given')
+        raise BridgeInvalidVolume('Invalid bucket name')
       else: # e.error_code == 'AccessDenied':
         raise BridgeAccessDenied('Invalid access key specified')
     self._can_access = True
