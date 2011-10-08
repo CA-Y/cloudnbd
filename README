@@ -1,16 +1,22 @@
+WARNING
+
+This software is still in alpha stage and lots of things change rapidly
+that break backward and forward compatibility. Therefore it is highly
+advised against using cloudnbd for any serious purpose.
+
+INTRODUCTION
 
 cloudnbd: A network block device with cloud storage as backend
-========================================================================
 
 If you care about your data, you back it up. However, a backup that
 can't be restored when you need it is as useless as no backup. You need
 to make sure you backup is immune to physical theft, natural disasters
 and other causes that results in data loss. You also need to ensure
-availability of the data when you need it and its integrity. Now, it's
-hard to come by all these qualities using an external hard drive for
-instance. Cloud storage services such as Google Storage for Developers
-and Amazon S3 however provide all the above at a very cheap price. But
-it doesn't give you the flexibility of a local hard disk.
+availability of the data when you need it as well as its integrity. Now,
+it's hard to come by all these qualities using an external hard drive
+for instance. Cloud storage services such as Google Storage for
+Developers and Amazon S3 however provide all the above at a very cheap
+price. But it doesn't give you the flexibility of a local hard disk.
 
 cloudnbd is an interface to cloud storage services that acts as a normal
 block device. You can format it using your favorite filesystem or use it
@@ -60,3 +66,31 @@ cloudnbd volume:
 
   $ umount /mnt
   $ cloudnbd close gs jennyt-mybackup/photos
+
+INSTALLING
+
+Install cloudnbd using the following:
+
+  $ python setup.py install
+
+If you have an rpm based distro and wish to create an rpm package,
+create a source distribution archive and use it along with cloudnbd.spec
+to create the rpm package:
+
+  $ python setup.py sdist --formats=bztar
+
+USAGE
+
+To find out more about the usage of cloudnbd, consult the man page:
+
+  $ man cloudnbd
+
+BUGS
+
+If you come across any issues, see if you can fix it and send me a
+patch. If not, just email me what the issue is. The email address to
+send patches and issue descriptions to is mansour@oxplot.com
+Any and all contributions will be highly appreciated.
+
+AND ... I would love to hear you using this program to give yourselves
+peace of mind =)
