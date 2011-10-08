@@ -3,6 +3,8 @@
 #
 
 from distutils.core import setup
+import os
+os.umask(022)
 
 setup(
   name='cloudnbd',
