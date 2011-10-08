@@ -64,7 +64,8 @@ def main(args):
   config = cnbdcore.serialize({
     'bs': cnbdcore._default_bs,
     'crypt_key': crypt_key.encode('hex'),
-    'size': args.size
+    'size': args.size,
+    'requires': ['compress-' + cnbdcore._default_compression]
   })
   blocktree.set('config', config, direct=True)
   blocktree.close()
