@@ -56,7 +56,7 @@ def main(args):
     config = blocktree.get('config')
     if config:
       fatal("volume '%s' already exists" % (args.volume))
-  except cnbdcore.blocktree.BTInvalidKey:
+  except cnbdcore.blocktree.BTDecryptError:
     fatal("volume '%s' already exists" % (args.volume))
 
   # set up the config
@@ -65,7 +65,7 @@ def main(args):
     'bs': cnbdcore._default_bs,
     'crypt_key': crypt_key.encode('hex'),
     'size': args.size,
-    'requires': ['compress-' + cnbdcore._default_compression]
+    'requires': ['compress-' + cnbdcore._default_compressor]
   })
   blocktree.set('config', config, direct=True)
   blocktree.close()
