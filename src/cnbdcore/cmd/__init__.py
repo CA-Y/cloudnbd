@@ -35,6 +35,12 @@ def info(msg):
   sys.stderr.write("%s:info: %s\n" % (cnbdcore._prog_name, msg))
 
 def get_all_creds(args):
+  try:
+    _get_all_creds(args)
+  except (EOFError, KeyboardInterrupt):
+    fatal('authentication cancelled')
+
+def _get_all_creds(args):
   if args.access_key is None:
     args.access_key = raw_input('access key: ')
   if args.secret_key is None:

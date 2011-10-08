@@ -35,6 +35,13 @@ def main():
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description="NBD server with cloud storage as the backend"
   )
+  parser.add_argument(
+    '-F', '--config',
+    type=unicode,
+    metavar='<path>',
+    help="path to custom config file - if this options is specified"
+         ", the default config files are ignored"
+  )
   _add_common_args(parser)
   subparsers = parser.add_subparsers(
     help="cloudbd commands",
@@ -186,8 +193,11 @@ def main():
 
   # load the config
 
-  config = config.parse() # TODO if given a file
-  config.underlay(args, config)
+  if args.config is None:
+    cfg = config.parse()
+  else:
+    cfg = config.parse(args.config)
+  config.underlay(args, cfg)
 
   exec ('import cnbdcore.cmd.%scmd' % args.command) \
     in locals(), globals()

@@ -49,7 +49,7 @@ def _load_file_helper(path):
   entries = {}
   k, v = None, None
   for l in open(path, 'r'):
-    lineno += 1
+    line += 1
     l = l.strip()
     if not l or l.startswith('#'):
       continue
@@ -59,19 +59,23 @@ def _load_file_helper(path):
           "expected [backend:volume] on line %d in '%s'" % (line, path)
         )
       if k: entries[k] = v
-      k, v = tuple(map(str.strip, l[1:-1].split(':', 1))), {}
+      k, v = tuple(map(unicode.strip, l[1:-1].split(':', 1))), {}
+      continue
     elif '=' not in l:
       raise ConfigParseError(
         "expected key=value pair on line %d in '%s'" % (line, path)
       )
-    pl, pr = map(str.strip, l.split('=', 1))
+    pl, pr = map(unicode.strip, l.split('=', 1))
     v[pl] = pr
   if k: entries[k] = v
+  return entries
 
-def underlay(args, config):
+def underlay(args, cfg):
   if not hasattr(args, 'backend') or not hasattr(args, 'volume'):
     return
   volid = (args.backend, args.volume)
+  if volid not in cfg:
+    return
   for k in filter(lambda a: a in _allowed_config_keys
-                            and hasattr(args, a), config[volid]):
-    setattr(args, k, config[volid][k])
+                            and hasattr(args, a), cfg[volid]):
+    setattr(args, k, cfg[volid][k])

@@ -7,15 +7,19 @@ Version:        %{version}
 Release:        %{release}
 Summary:        NBD server with cloud storage as backend
 
-Group:          Development/Libraries
-License:        GPL
+Group:          Applications/Archiving
+License:        GPLv3+
 Source0:        %{name}-%{version}.tar.bz2
 Vendor:         Mansour <mansour@oxplot.com>
 URL:            https://github.com/oxplot/cloudnbd
 
+Provides:       cloudnbd
 BuildArch:      noarch
-BuildRequires:  python
-Requires:       python
+BuildRequires:  python >= 2.7
+Requires:       python >= 2.7
+Requires:       python-boto >= 2.0
+Requires:       pyliblzma >= 0.5.3
+Requires:       python-crypto >= 2.3
 
 %description
 NBD server with cloud storage as backend.

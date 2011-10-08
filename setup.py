@@ -18,7 +18,8 @@ setup(
     'cnbdcore.cloud': 'src/cnbdcore/cloud'
   },
   scripts=['src/cloudnbd'],
-  license='GPLv3',
+  data_files=[('/etc', ['cloudnbd.conf'])],
+  license='GPLv3+',
   requires=[
     'argparse',
     'boto',
