@@ -69,6 +69,11 @@ cloudnbd volume:
 
 INSTALLING
 
+Dependencies:
+
+  - pycrypto (https://www.dlitz.net/software/pycrypto/) version 2.3 or
+    greater
+
 Install cloudnbd using the following:
 
   $ python setup.py install
