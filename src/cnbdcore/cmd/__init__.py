@@ -45,6 +45,9 @@ def _get_all_creds(args):
     args.access_key = raw_input('access key: ')
   if args.secret_key is None:
     args.secret_key = getpass.getpass('secret key: ')
+  if hasattr(args, 'yes') and args.yes:
+    args.passphrase = ''
+    return
   if args.passphrase is None:
     if args.command == 'init':
       args.passphrase = _get_secret_stubbornly(

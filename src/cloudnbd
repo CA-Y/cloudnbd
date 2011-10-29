@@ -39,7 +39,7 @@ def main():
     '-F', '--config',
     type=unicode,
     metavar='<path>',
-    help="path to custom config file - if this options is specified"
+    help="path to custom config file - if this option is specified"
          ", the default config files are ignored"
   )
   _add_common_args(parser)
