@@ -8,7 +8,7 @@ os.umask(022)
 
 setup(
   name='cloudnbd',
-  version='0.2',
+  version='0.21',
   description='NBD server with cloud storage as backend',
   author='Mansour',
   author_email='mansour@oxplot.com',

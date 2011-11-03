@@ -270,6 +270,10 @@ will be prefixed with. Note that a slash character "/" is appened to
 .br
 Example: "jennyt/documents" refers to "jennyt" bucket with prefix of
 "documents".
+.br
+NOTE you must ensure you have some type of system clock synchronization
+such as NTP to avoid errors caused by large differences in clock time
+between your machine and Google servers.
 .SH FILES
 .nf
 /etc/cloudnbd.conf

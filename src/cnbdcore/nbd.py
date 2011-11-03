@@ -87,6 +87,7 @@ class NBD(object):
     self._lsock.bind((self.host, self.port))
     self._lsock.listen(1)
     sock, addr = self._lsock.accept()
+    self._lsock.close()
     flags = NBD.FLAG_HAS_FLAGS | NBD.FLAG_SEND_FLUSH \
           | NBD.FLAG_SEND_TRIM
     sock.send(b'NBDMAGIC\x00\x00\x42\x02\x81\x86\x12\x53' +
