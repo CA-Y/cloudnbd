@@ -22,9 +22,13 @@ from __future__ import division
 import sys
 import argparse
 import cnbdcore
+import logging
+import threading
 from cnbdcore import config
 
 def main():
+
+  threading.currentThread().setName('Tmain')
 
   if any(map(lambda a: unicode(a) in ['-v', '--version'],
          sys.argv[1:])):
@@ -42,6 +46,19 @@ def main():
     help="path to custom config file - if this option is specified"
          ", the default config files are ignored"
   )
+  parser.add_argument(
+    '-l', '--log',
+    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+    metavar='<level>',
+    type=unicode,
+    help="log debug messages - levels available: DEBUG, INFO,"
+         " WARNING, ERROR - for open command, must be used with"
+         " --foreground")
+  parser.add_argument(
+    '-L', '--log-file',
+    type=unicode,
+    metavar='<path>',
+    help="also log debug messages to a file - must use with -l")
   _add_common_args(parser)
   subparsers = parser.add_subparsers(
     help="cloudbd commands",
@@ -190,6 +207,23 @@ def main():
   _add_name_args(parser_a)
 
   args = parser.parse_args()
+
+  # set up logging
+
+  if args.log:
+    rootlog = logging.getLogger()
+    logformatter = logging.Formatter(fmt=cnbdcore._debug_logging_format)
+    streamhandler = logging.StreamHandler()
+    streamhandler.setFormatter(logformatter)
+    rootlog.addHandler(streamhandler)
+    if args.log_file:
+      filehandler = logging.FileHandler(args.log_file)
+      filehandler.setFormatter(logformatter)
+      rootlog.addHandler(filehandler)
+    rootlog.setLevel(getattr(logging, args.log))
+  else:
+    logging.basicConfig(format=cnbdcore._logging_format,
+                        level=logging.FATAL)
 
   # load the config
 

@@ -4,7 +4,8 @@
 cloudnbd \- NBD server with cloud storage as backend
 .SH SYNOPSIS
 .nf
-\fBcloudnbd\fP [\fB-h\fP] [\fB-v\fP]
+\fBcloudnbd\fP [\fB\-h\fP] [\fB\-v\fP] [\fB\-l\fP] [\fB\-L\fP] \
+[\fB\-F\fP]
 
 \fBcloudnbd\fP [\fIoption\fP] \fIcommand\fP [\fB\-h\fP] \&.\&.\&.
 
@@ -149,10 +150,18 @@ These \fIoption\fPs must be specified \fIbefore\fP the \fIcommand\fP name.
 .IP "\fB\-h\fP, \fB\-\-help\fP"
 Shows the list of all available commands as well as help for the
 \fIGENERAL OPTIONS\fP.
-.IP "\fB\-F\fP \fIpath\fP, \fB\-\-path\fP \fIpath\fP"
+.IP "\fB\-F\fP \fIpath\fP, \fB\-\-config\fP \fIpath\fP"
 Specifies the path to custom config file. If this option is specified,
 the default config files are ignored. See \fIFILES\fP section for
 location of config files.
+.IP "\fB\-l\fP \fIlevel\fP, \fB\-\-log\fP \fIlevel\fP"
+Turn logging on. \fIlevel\fP can be one of: DEBUG, INFO, WARNING, ERROR.
+Each level is more severe than the one before it. Choosing any level
+will also include all the levels that follows it. The logs are written
+to standard output.
+.IP "\fB\-L\fP \fIpath\fP, \fB\-\-log\-file\fP \fIpath\fP"
+Write logs to a file as well. \fB\-l\fP must be used before this option
+has any effect.
 .PP
 These options must be specified \fIafter\fP the \fIcommand\fP name.
 .PP
