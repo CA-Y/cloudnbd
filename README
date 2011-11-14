@@ -2,7 +2,8 @@ WARNING
 
 This software is still in alpha stage and lots of things change rapidly
 that break backward and forward compatibility. Therefore it is highly
-advised against using cloudnbd for any serious purpose.
+advised against using cloudnbd in prod environments.
+Also see the caveats section to avoid possible deadlock situations.
 
 INTRODUCTION
 
@@ -24,7 +25,7 @@ in a RAID configuration, etc. Below is the list of features:
 
   * Full integrity in case of network/power failure (with appropriate
     kernel and filesystem support, this integrity will further apply to
-    the state of the FS)
+    the state of the FS - see below for further details)
   * Ability to resize a volume after creation
   * Password protection of all data using AES-256 encryption
   * Change of password after creation without re-encryption of data
@@ -33,10 +34,10 @@ in a RAID configuration, etc. Below is the list of features:
     plain data is stored)
   * Support for both FLUSH and TRIM NBD commands
 
-cloudnbd acts as an NBD (Network Block Device) server when run. To
-create an actual linux block device, you need nbd-client which is a part
-of NBD user-space tools (TCP version) which is most likely shipped with
-your distribution.
+cloudnbd acts as an NBD (Network Block Device) server. To create an
+actual linux block device, you need nbd-client which is a part of NBD
+user-space tools (TCP version) which is most likely shipped with your
+distribution.
 
 Here's an example of how to create a new volume on Google Storage for
 Developers (GS) (assuming you already have a bucket named
@@ -53,7 +54,7 @@ And now we're ready to format it and mount it locally:
 
   $ cloudnbd open gs jennyt-mybackup/photos -p 12345
   $ modprobe nbd
-  $ nbd-client localhost 12345 /dev/nbd0 -b 4096
+  $ nbd-client localhost 12345 /dev/nbd0
 
 That's it. Now the newly created block device '/dev/nbd0' is ready to be
 formatted with FS of your choosing:
@@ -67,12 +68,40 @@ cloudnbd volume:
   $ umount /mnt
   $ cloudnbd close gs jennyt-mybackup/photos
 
+CAVEATS
+
+Due to a possible deadlock that may occur from running the NBD client
+and server (cloudnbd is an NBD server) on the same machine, I recommend
+you running both on a Virtual Machine (e.g. KVM or VirtualBox). To
+access the data on your host, mount it using either samba or sshfs. This
+way, in case of a deadlock, your host is untouched. If you know any
+other way to avoid the deadlock, let me know.
+
+The other issue even in absence of the deadlocks is related to linux
+buffer cache filling up and slowing down the entire system to a crawl.
+Using a VM also takes care of this issue. I would however like to find
+out why this happens. Again, if anyone knows a fix/workaround besides
+using a VM, please email me.
+
+FULL INTEGRITY OF FILE SYSTEM
+
+To achieve full integrity of your file system on the cloud, you need two
+bits of support: flush support in the NBD kernel module and flush
+support in the NBD client tool.
+
+Alex Bligh's repo contains a version of NBD module code that supports
+TRIM and FLUSH commands: http://git.alex.org.uk/nbd-module.git/
+
+The latest NBD tools should have TRIM and FLUSH support:
+https://github.com/yoe/nbd
+
 INSTALLING
 
 Dependencies:
 
   - pycrypto (https://www.dlitz.net/software/pycrypto/) version 2.3 or
-    greater
+    higher
+  - boto (http://http://boto.cloudhackers.com/) version 2.0 or higher
 
 Install cloudnbd using the following:
 
