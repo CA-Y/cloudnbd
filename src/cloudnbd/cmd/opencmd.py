@@ -85,8 +85,7 @@ class OpenCMD(object):
     return self.nbd_writecb(off, '\0' * length)
 
   def nbd_flushcb(self, off, length):
-    self.blocktree.flush()
-    return (0, '')
+    return (0, '') # TODO NOT IMPLEMENTED YET
 
   def nbd_writecb(self, off, data):
     length = len(data)
