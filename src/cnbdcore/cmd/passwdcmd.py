@@ -44,7 +44,7 @@ class PasswdCMD(object):
     try:
       self.cloud.check_access()
     except (cnbdcore.cloud.BridgeAccessDenied,
-            cnbdcore.cloud.BridgeInvalidVolume) as e:
+            cnbdcore.cloud.BridgeNoSuchBucket) as e:
       fatal(e.args[0])
 
     self.pass_key = cnbdcore.auth.get_pass_key(self.args.passphrase)

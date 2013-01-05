@@ -28,7 +28,7 @@ class BridgeError(Exception):
   pass
 class BridgeAccessDenied(BridgeError):
   pass
-class BridgeInvalidVolume(BridgeError):
+class BridgeNoSuchBucket(BridgeError):
   pass
 class BridgeAccessNotChecked(BridgeError):
   pass
