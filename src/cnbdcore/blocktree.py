@@ -232,7 +232,6 @@ class BlockTree(object):
         data = compressed
       else:
         store_compressed = 0
-        del compressed
     data_len = len(data)
 
     # build the packet
