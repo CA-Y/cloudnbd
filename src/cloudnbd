@@ -22,7 +22,6 @@ from __future__ import division
 import sys
 import argparse
 import cnbdcore
-from cnbdcore import config
 
 def main():
 
@@ -183,11 +182,6 @@ def main():
   _add_name_args(parser_a)
 
   args = parser.parse_args()
-
-  # load the config
-
-  config = config.parse() # TODO if given a file
-  config.underlay(args, config)
 
   exec ('import cnbdcore.cmd.%scmd' % args.command) \
     in locals(), globals()
