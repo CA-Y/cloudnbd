@@ -188,7 +188,13 @@ def _storage_size(value):
     raise argparse.ArgumentTypeError(msg)
 
 def _add_name_args(parser):
-  """Add volume name arguments to the parser."""
+  """Add volume bucket and name arguments to the parser."""
+  parser.add_argument(
+    'bucket',
+    metavar='<bucket>',
+    type=unicode,
+    help="bucket name"
+  )
   parser.add_argument(
     'volume',
     metavar='<volume>',
@@ -247,12 +253,6 @@ def _add_auth_args(parser):
     metavar="<access-key>",
     type=unicode,
     help="access key"
-  )
-  parser.add_argument(
-    '-k', '--secret-key',
-    metavar="<secret-key>",
-    type=unicode,
-    help="secret key"
   )
   parser.add_argument(
     '-y', '--passphrase',

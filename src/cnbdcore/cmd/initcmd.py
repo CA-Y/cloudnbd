@@ -29,7 +29,7 @@ def main(args):
 
   cloud = cnbdcore.cloud.backends[args.backend](
     access_key=args.access_key,
-    secret_key=args.secret_key,
+    bucket=args.bucket,
     volume=args.volume
   )
 
@@ -55,9 +55,11 @@ def main(args):
   try:
     config = blocktree.get('config')
     if config:
-      fatal("volume '%s' already exists" % (args.volume))
+      fatal("volume '%s' in bucket '%s' already exists"
+            % (args.volume, args.bucket))
   except cnbdcore.blocktree.BTInvalidKey:
-    fatal("volume '%s' already exists" % (args.volume))
+    fatal("volume '%s' in bucket '%s' already exists"
+          % (args.volume, args.bucket))
 
   # set up the config
 

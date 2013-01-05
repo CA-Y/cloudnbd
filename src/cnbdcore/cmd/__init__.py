@@ -37,8 +37,8 @@ def info(msg):
 def get_all_creds(args):
   if not args.access_key:
     args.access_key = raw_input('access key: ')
-  if not args.secret_key:
-    args.secret_key = getpass.getpass('secret key: ')
+  #if not args.secret_key:
+    #args.secret_key = getpass.getpass('secret key: ')
   if not args.passphrase:
     args.passphrase = getpass.getpass('passphrase: ')
 

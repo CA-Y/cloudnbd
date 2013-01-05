@@ -37,7 +37,7 @@ def main(args):
       lst.append(vid)
   if lst:
     lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
-    lst = [('[backend]', '[volume]')] + lst
+    lst = [('[backend]', '[bucket]', '[volume]')] + lst
     lst_len = map(lambda a: map(lambda b: len(b), a), lst)
     max_len = map(lambda a: max(*a), map(lambda *r: list(r), *lst_len))
     fmt = ' '.join(map(lambda a: '%%-%ds' % a, max_len))

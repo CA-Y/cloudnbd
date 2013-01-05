@@ -41,7 +41,7 @@ class OpenCMD(object):
     self.args = args
     self.cloud = cnbdcore.cloud.backends[args.backend](
       access_key=args.access_key,
-      secret_key=args.secret_key,
+      bucket=args.bucket,
       volume=args.volume
     )
     self.nbd = nbd.NBD(
@@ -145,8 +145,8 @@ class OpenCMD(object):
     try:
       config = self.blocktree.get('config')
       if not config:
-        fatal("volume with name '%s' does not exist"
-              % (self.args.volume))
+        fatal("volume with name '%s' does not exist in bucket '%s'"
+              % (self.args.volume, self.args.bucket))
     except cnbdcore.blocktree.BTInvalidKey:
       fatal("decryption of config failed, most likely wrong"
             " passphrase supplied")
@@ -202,6 +202,7 @@ class OpenCMD(object):
 
     self._vol_id = (
       self.args.backend,
+      self.args.bucket,
       self.args.volume
     )
     self._serve_stat = cnbdcore.create_stat_node(*self._vol_id)
@@ -317,7 +318,7 @@ def main(args):
 
   # ensure the volume is not already open
 
-  vol_id = (args.backend, args.volume)
+  vol_id = (args.backend, args.bucket, args.volume)
   if not cnbdcore.acquire_pid_lock(*vol_id):
     fatal('specified volume is already open')
   try:

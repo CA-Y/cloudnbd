@@ -48,10 +48,9 @@ class CloudObject(object):
 
 class Bridge(object):
   """Web service interface"""
-  def __init__(self, access_key = None, secret_key = None,
-               volume = None):
+  def __init__(self, access_key = None, bucket = None, volume = None):
     self.access_key = access_key
-    self.secret_key = secret_key
+    self.bucket = bucket
     self.volume = volume
     self._can_access = False
 
@@ -61,15 +60,8 @@ class Bridge(object):
     """
     raise NotImplementedError('abstract class')
 
-  def clone(self, base = None):
-    if base is None:
-      base = Bridge
-    new_bridge = base()
-    new_bridge.access_key = self.access_key
-    new_bridge.secret_key = self.secret_key
-    new_bridge.volume = self.volume
-    new_bridge._can_access = self._can_access
-    return new_bridge
+  def clone(self):
+    raise NotImplementedError('abstract class')
 
   def get(self, path):
     """Get the value of the object given by the path."""
@@ -88,16 +80,9 @@ class Bridge(object):
   def list(self, prefix):
     raise NotImplementedError('abstract class')
 
-  def _ensure_access(self):
-    if not self._can_access:
-      raise BridgeAccessNotChecked(
-        'check_access() must be called first'
-      )
-
 from cnbdcore.cloud import gs
 
 backends = {
-  # 's3': None,
-  # 'fs': None,
-  'gs': gs.GS
+  'gs': gs.GS,
+  's3': None
 }

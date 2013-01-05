@@ -33,7 +33,7 @@ class ResizeCMD(object):
     self.args = args
     self.cloud = cnbdcore.cloud.backends[args.backend](
       access_key=args.access_key,
-      secret_key=args.secret_key,
+      bucket=args.bucket,
       volume=args.volume
     )
 
@@ -59,8 +59,8 @@ class ResizeCMD(object):
     try:
       config = self.blocktree.get('config')
       if not config:
-        fatal("volume with name '%s' does not exist"
-              % (self.args.volume))
+        fatal("volume with name '%s' does not exist in bucket '%s'"
+              % (self.args.volume, self.args.bucket))
     except cnbdcore.blocktree.BTInvalidKey:
       fatal("decryption of config failed, most likely wrong"
             " passphrase supplied")
