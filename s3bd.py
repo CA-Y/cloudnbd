@@ -85,6 +85,8 @@ class S3:
       try:
         key = self.bucket.get_key(key)
         break
+      except S3PermissionsError, e:
+        fatal('permission error')
       except:
         pass
       time.sleep(0.1)
@@ -92,6 +94,8 @@ class S3:
       while True:
         try:
           return key.get_contents_as_string()
+        except S3PermissionsError, e:
+          fatal('permission error')
         except:
           pass
         time.sleep(0.1)
@@ -107,6 +111,8 @@ class S3:
         try:
           k.set_contents_from_string(value)
           break
+        except S3PermissionsError, e:
+          fatal('permission error')
         except:
           pass
         time.sleep(0.1)
@@ -115,6 +121,8 @@ class S3:
       while True:
         try:
           return True if self.bucket.get_key(key) else False
+        except S3PermissionsError, e:
+          fatal('permission error')
         except:
           pass
         time.sleep(0.1)
@@ -122,6 +130,8 @@ class S3:
     while True:
       try:
         return self.bucket.list(prefix=prefix)
+      except S3PermissionsError, e:
+        fatal('permission error')
       except:
         pass
       time.sleep(0.1)
@@ -133,6 +143,8 @@ class S3:
       while True:
         try:
           k.delete()
+        except S3PermissionsError, e:
+          fatal('permission error')
         except:
           pass
         time.sleep(0.1)
