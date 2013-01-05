@@ -24,7 +24,6 @@ import argparse
 import cnbdcore
 import logging
 import threading
-import multiprocessing
 from cnbdcore import config
 
 def main():
@@ -344,5 +343,4 @@ def _add_backend_args(parser):
   )
 
 if __name__ == '__main__':
-  multiprocessing.freeze_support()
   main()

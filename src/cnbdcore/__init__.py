@@ -17,6 +17,12 @@ import stat
 import socket
 from hashlib import md5
 
+# we set a timeout on all socket read/writes to avoid dead sockets - if
+# a single read/write event takes more than the value below, there is
+# something wrong with the connection - it'll fail, raise exception, we
+# catch it and retry
+socket.setdefaulttimeout(30) # in seconds
+
 _ver_major = 0
 _ver_minor = 21
 _ver_sub = ''

@@ -107,7 +107,7 @@ class DeleteCMD(object):
     self._item_count = 0
 
     for k in self.cloud.list(prefix='blocks/'):
-      self._cachefile.write('%s\n' % k.split('/')[-1])
+      self._cachefile.write('%s\n' % k.name.split('/')[-1])
       if self._item_count % 10 == 0:
         _print_caching_progress(self._item_count)
       self._item_count += 1
