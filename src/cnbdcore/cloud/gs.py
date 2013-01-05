@@ -23,6 +23,8 @@ from __future__ import division
 import cnbdcore
 import time
 import threading
+import urllib2
+import hashlib
 from cnbdcore.cloud import *
 
 # set the boto config that forces certificate validation for HTTPS
@@ -71,7 +73,7 @@ class GS(Bridge):
       if e.error_code == 'NoSuchBucket':
         raise BridgeNoSuchBucket('Invalid bucket name given')
       else: # e.error_code == 'AccessDenied':
-        raise BridgeAccessDenied('Invalid access key specified')
+        raise BridgeAccessDenied('Invalid access key specified bucket')
     self._can_access = True
 
   def clone(self):
