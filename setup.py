@@ -8,7 +8,7 @@ os.umask(022)
 
 setup(
   name='cloudnbd',
-  version='0.2',
+  version='0.1',
   description='NBD server with cloud storage as backend',
   author='Mansour',
   author_email='mansour@oxplot.com',
@@ -20,10 +20,7 @@ setup(
     'cnbdcore.cloud': 'src/cnbdcore/cloud'
   },
   scripts=['src/cloudnbd'],
-  data_files=[
-    ('/etc', ['cloudnbd.conf']),
-    ('man/man1', ['docs/cloudnbd.1'])
-  ],
+  data_files=[('/etc', ['cloudnbd.conf'])],
   license='GPLv3+',
   requires=[
     'argparse',
