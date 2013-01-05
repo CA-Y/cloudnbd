@@ -51,9 +51,20 @@ class InfoCMD(object):
       threads=1
     )
 
-    # load the config
+    # ensure there is a volume with the given name (config file exists)
 
-    self.config = cnbdcore.cmd.load_cloud_config(self.blocktree)
+    try:
+      config = self.blocktree.get('config')
+      if not config:
+        fatal("volume with name '%s' does not exist"
+              % (self.args.volume))
+    except cnbdcore.blocktree.BTInvalidKey:
+      fatal("decryption of config failed, most likely wrong"
+            " passphrase supplied")
+
+    # load the config and get the encryption key
+
+    self.config = cnbdcore.deserialize(config)
 
     # ensure the volume is not being deleted
 

@@ -56,25 +56,6 @@ def _get_all_creds(args):
       if not same:
         print('PASSWORDS DO NOT MATCH - TRY AGAIN')
 
-def load_cloud_config(blocktree):
-  try:
-    config = blocktree.get('config')
-    if config is None:
-      fatal("volume with name '%s' does not exist"
-            % (blocktree.cloud.volume))
-  except cnbdcore.blocktree.BTInvalidKey:
-    fatal("decryption of config failed, most likely wrong"
-          " passphrase supplied or old version of software")
-  return cnbdcore.deserialize(config)
-
-def ensure_req_capabilities(config):
-  reqs = set(config['requires'])
-  unsupported = reqs - cnbdcore._capabilities
-  if unsupported:
-    fatal("following capabilities required by the volume are not"
-          " supported, use a more recent version of this software"
-          ": %s" % ', '.join(unsupported))
-
 from cnbdcore.cmd import initcmd
 from cnbdcore.cmd import closecmd
 from cnbdcore.cmd import closeallcmd

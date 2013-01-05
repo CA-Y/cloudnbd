@@ -23,6 +23,7 @@ from __future__ import division
 import cnbdcore
 import os
 import struct
+import zlib
 import hashlib
 import time
 import threading
@@ -31,7 +32,7 @@ from Crypto.Cipher import AES
 
 class BTError(Exception):
   pass
-class BTDecryptError(BTError):
+class BTInvalidKey(BTError):
   pass
 class BTChecksumError(BTError):
   pass
@@ -47,9 +48,10 @@ def _writer_factory(blocktree):
           with blocktree._stats_lock:
             blocktree._stats['deleted_count'] += 1
         else:
+          checksum = blocktree._build_checksum(path, data)
           plain_data_len = len(data)
           data = blocktree._encrypt_data(path, data)
-          cloud.set(path, data)
+          cloud.set(path, data, metadata={'checksum': checksum})
           with blocktree._stats_lock:
             blocktree._stats['sent_count'] += 1
             blocktree._stats['data_sent'] += plain_data_len
@@ -90,6 +92,12 @@ def _indep_get(blocktree, cloud, k):
     with blocktree._stats_lock:
       blocktree._stats['data_recv'] += len(data)
       blocktree._stats['wire_recv'] += wire_data_len
+    cloud_checksum = obj.metadata['checksum']
+    calc_checksum = blocktree._build_checksum(k, data)
+    if cloud_checksum != calc_checksum:
+      raise BTChecksumError(
+       "remote and calculated checksums for object:%s don't match" % k
+      )
     return data
   else:
     return None
@@ -97,7 +105,7 @@ def _indep_get(blocktree, cloud, k):
 class BlockTree(object):
   """Interface between cloud and the high level logic."""
   def __init__(self, pass_key = None, crypt_key = None, cloud = None,
-               threads = 1, read_ahead = 0, compressor = None):
+               threads = 1, read_ahead = 0):
     self._stats_lock = threading.RLock()
     self._stats = {'recv_count': 0, 'data_recv': 0, 'wire_recv': 0,
                    'sent_count': 0, 'data_sent': 0, 'wire_sent': 0,
@@ -112,7 +120,6 @@ class BlockTree(object):
     # initialize the readahead threads
     self._readers_active = False
     self._read_ahead = read_ahead
-    self.compressor = compressor
 
   def start_writers(self):
     self._writers = []
@@ -151,110 +158,61 @@ class BlockTree(object):
   def set(self, path, data, direct = False):
     """Upload/queue an object on/to be uploaded to cloud."""
     if direct:
+      checksum = self._build_checksum(path, data)
       cryptdata = self._encrypt_data(path, data)
-      self.cloud.set(path, cryptdata)
+      self.cloud.set(path, cryptdata, metadata={'checksum': checksum})
     else:
       self._cache[path] = data
 
-  _cs_len = 256 // 8
   def _build_checksum(self, path, data):
-    """Calculate the checksum for given path and data."""
+    """Calculate the checksum for given path anda data."""
     key = self.pass_key if path == 'config' else self.crypt_key
     hasher = hashlib.sha256(cnbdcore._salt + key
       + path.encode('utf8') + (b'' if data is None else data))
-    return hasher.digest()
+    return hasher.hexdigest()
 
   def _decrypt_data(self, path, data):
     """Decrypt the given data."""
     if not data:
       return None
-
-    # decrypt the data
-
-    if len(data) % BlockTree._crypt_bl != 0:
-      raise BTDecryptError("decryption of '%s' failed due to"
-                           " possible corruption" % path)
+    zipped, size = struct.unpack_from(b'!BQ', data, 0)
+    data = data[struct.calcsize(b'!BQ'):]
+    key = self.pass_key if path == 'config' else self.crypt_key
     hasher = hashlib.md5(cnbdcore._salt + path.encode('utf8'))
     iv = hasher.digest()
     decryptor = AES.new(key, AES.MODE_CBC, iv)
     data = decryptor.decrypt(data)
-
-    # check the magic string to ensure correct decryption
-
-    if data[-(len(cnbdcore._crypt_magic)):] != cnbdcore._crypt_magic:
-      raise BTDecryptError("decryption of '%s' failed possibly due to"
-                           " invalid encryption key (or passphrase)"
-                           % path)
-
-    # decode the header
-
-    header_spec = b'!%dsBQ' % BlockTree._cs_len
-    header_len = struct.calcsize(header_spec)
-    checksum, is_com, dl = struct.unpack_from(header_spec, data, 0)
-    data = data[header_len:header_len + dl]
-
-    # decompress if needed
-
-    if is_com:
-      data = self.compressor.decompress(data)
-
-    # compare the stored checksum with the data's checksum
-
-    if checksum != self._build_checksum(path, data):
-      raise BTChecksumError(
-       "remote and calculated checksums for object:%s don't match"
-       % path
-      )
-
-    # all good
-
+    data = data[:size]
+    magic_len = len(cnbdcore._crypt_magic)
+    magic = data[-magic_len:]
+    if magic != cnbdcore._crypt_magic:
+      raise BTInvalidKey("decryption of '%s' failed possibly due to"
+                         " invalid encryption key (or passphrase)"
+                         % path)
+    data = data[:-magic_len]
+    if zipped:
+     data = zlib.decompress(data)
     return data
 
-  _crypt_bl = 32
   def _encrypt_data(self, path, data):
     """Encrypt the given data."""
     if not data:
       return None
-
-    # get the checksum
-
-    checksum = self._build_checksum(path, data)
-
-    # decide whether to compress the data
-
-    if path == 'config':
-      store_compressed = 0
+    zipped = zlib.compress(data)
+    if len(zipped) < len(data):
+      storezip = 1
+      data = zipped
     else:
-      compressed = self.compressor.compress(data)
-      if len(compressed) < len(data):
-        store_compressed = 1
-        data = compressed
-      else:
-        store_compressed = 0
-    data_len = len(data)
-
-    # build the packet
-
-    header_spec = b'!%dsBQ' % BlockTree._cs_len
-    header = struct.pack(
-      packet_spec, checksum, store_compressed, data_len
-    )
-
-    # calculate the pad length
-
-    hd_len = len(header) + len(data) + len(cnbdcore._crypt_magic)
-    pad_len = (hd_len // BlockTree._crypt_bl + 1) \
-      * BlockTree._crypt_bl - hd_len
-
-    # construct the packet
-
+      storezip = 0
+    data += cnbdcore._crypt_magic
+    header = struct.pack(b'!BQ', storezip, len(data))
+    data = data.ljust((len(data) // 32 + 1) * 32, b'\0')
     key = self.pass_key if path == 'config' else self.crypt_key
     hasher = hashlib.md5(cnbdcore._salt + path.encode('utf8'))
     iv = hasher.digest()
     encryptor = AES.new(key, AES.MODE_CBC, iv)
-    return encryptor.encrypt(
-      header + data + ('\0' * pad_len) + cnbdcore._crypt_magic
-    )
+    data = encryptor.encrypt(data)
+    return header + data
 
   def get(self, path):
     """Get the value of an object."""
