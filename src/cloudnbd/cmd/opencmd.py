@@ -200,22 +200,34 @@ class OpenCMD(object):
 
     # setup a unix socket for stat communication and pid file
 
-    self._vol_id = (
-      self.args.backend,
-      self.args.bucket,
-      self.args.volume
-    )
-    self._serve_stat = cloudnbd.create_stat_node(*self._vol_id)
+    self._stat_path = cloudnbd.get_stat_path(
+      self.args.backend, self.args.bucket, self.args.volume)
+    self._pid_path = cloudnbd.get_pid_path(
+      self.args.backend, self.args.bucket, self.args.volume)
+
+    def create_stat():
+      if os.path.exists(self._stat_path):
+        os.unlink(self._stat_path)
+      os.mknod(self._stat_path, 0644 | stat.S_IFIFO)
+      self._serve_stat = True
+    def create_pid():
+      open(self._pid_path, 'w').write(str(os.getpid()))
+    def delete_file(path):
+      os.unlink(path)
+    create_stat()
+    self._run_silent(create_stat)
+    self._run_silent(create_pid)
 
     try:
       self._run()
     finally:
-      cloudnbd.destroy_stat_node(*self._vol_id)
+      self._run_silent(delete_file, self._stat_path)
+      self._run_silent(delete_file, self._pid_path)
 
   def _stat_server_worker(self):
     while True:
       try:
-        f = open(cloudnbd.get_stat_path(*self._vol_id), 'w')
+        f = open(self._stat_path, 'w')
         rstats = self.blocktree.get_stats()
         nbdstats = self.nbd.get_stats()
         stats = {}
@@ -248,7 +260,7 @@ class OpenCMD(object):
         f.flush()
         f.close()
       except:
-        raise
+        pass
       time.sleep(0.5)
 
   def _run(self):
@@ -318,12 +330,14 @@ def main(args):
 
   # ensure the volume is not already open
 
-  vol_id = (args.backend, args.bucket, args.volume)
-  if not cloudnbd.acquire_pid_lock(*vol_id):
+  pid_path = cloudnbd.get_pid_path(
+    args.backend,
+    args.bucket,
+    args.volume
+  )
+  if os.path.exists(pid_path):
     fatal('specified volume is already open')
-  try:
-    get_all_creds(args)
-    opencmd = OpenCMD(args)
-    opencmd.run()
-  finally:
-    cloudnbd.release_pid_lock(*vol_id)
+
+  get_all_creds(args)
+  opencmd = OpenCMD(args)
+  opencmd.run()

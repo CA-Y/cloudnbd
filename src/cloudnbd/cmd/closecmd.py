@@ -27,15 +27,13 @@ from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  vid = (args.backend, args.bucket, args.volume)
-  if cloudnbd.acquire_pid_lock(*vid):
-    cloudnbd.release_pid_lock(*vid)
-    cloudnbd.destroy_stat_node(*vid)
+  pid_path = cloudnbd.get_pid_path(
+    args.backend, args.bucket, args.volume
+  )
+  try:
+    pid = int(open(pid_path, 'r').read())
+    os.kill(pid, signal.SIGINT)
+  except:
     fatal('the given volume is not open - use \'%s list\' to see'
           ' list of currently open volumes' % cloudnbd._prog_name)
-  else:
-    open(cloudnbd.get_pid_path(*vid), 'r')
-    return
-    pid = int(open(cloudnbd.get_pid_path(*vid), 'r').read())
-    os.kill(pid, signal.SIGINT)
-    print('%s %s %s -> closing' % vid)
+
