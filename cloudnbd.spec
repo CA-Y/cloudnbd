@@ -18,6 +18,7 @@ BuildArch:      noarch
 BuildRequires:  python >= 2.7
 Requires:       python >= 2.7
 Requires:       python-boto >= 2.0
+Requires:       pyliblzma >= 0.5.3
 Requires:       python-crypto >= 2.3
 
 %description
