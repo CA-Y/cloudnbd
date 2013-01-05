@@ -18,10 +18,11 @@ from hashlib import md5
 
 _ver_major = 0
 _ver_minor = 2
+_ver_patch = 0
 _ver_sub = ''
-_ver_tuple = (_ver_major, _ver_minor, _ver_sub)
+_ver_tuple = (_ver_major, _ver_minor, _ver_patch, _ver_sub)
 
-__version__ = '%d.%d%s' % _ver_tuple
+__version__ = '%d.%d.%d%s' % _ver_tuple
 
 _prog_name = 'cloudnbd'
 _print_ver = '%s %s' % (_prog_name, __version__)

@@ -1,4 +1,2 @@
  * Copy feature to duplicate volume
- * Command to check the used size of a volume on the cloud
- * Add mutual exlusivity on the cloud to prevent concurrent opening of
-   volumes
+ * Change password command
