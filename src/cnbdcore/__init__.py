@@ -59,10 +59,6 @@ _salt = b'\xbe\xee\x0f\xac\x81\xb9x7n\xce\xd6\xd0\xdfc\xc8\x11\x91+' \
         b'\xe9\xe2\xc1\xc3R]\xc0\xd1'
 _crypt_magic = b'C10Ud-LiC1ou5'
 
-_debug_logging_format = '%(levelname)s:%(threadName)s:%(filename)s' \
-                        '(%(lineno)d):%(funcName)s: %(message)s'
-_logging_format = '%(levelname)s: %(message)s'
-
 _locked_pids = {}
 
 def size_to_hum(size):
