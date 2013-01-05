@@ -127,8 +127,6 @@ class GS(Bridge):
       except GSResponseError as e:
         if e.error_code == 'NoSuchKey':
           break
-      except:
-        pass
       time.sleep(1)
 
   def list(self, prefix=''):

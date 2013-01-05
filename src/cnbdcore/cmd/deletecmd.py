@@ -151,8 +151,7 @@ class DeleteCMD(object):
           cloud.delete('blocks/%s' % k)
           with self._delete_lock:
             self._delete_count += 1
-            if self._delete_count \
-              % ((self._item_count // 110) + 1) == 0:
+            if self._delete_count % (self._item_count // 110) == 0:
               _print_deleting_progress(
                 self._item_count, self._delete_count)
         except StopIteration:
