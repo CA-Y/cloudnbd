@@ -20,14 +20,14 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cnbdcore
-from cnbdcore.cmd import fatal, warning, info, get_all_creds
+import cloudnbd
+from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
   get_all_creds(args)
 
-  cloud = cnbdcore.cloud.backends[args.backend](
+  cloud = cloudnbd.cloud.backends[args.backend](
     access_key=args.access_key,
     bucket=args.bucket,
     volume=args.volume
@@ -37,13 +37,13 @@ def main(args):
 
   try:
     cloud.check_access()
-  except (cnbdcore.cloud.BridgeAccessDenied,
-          cnbdcore.cloud.BridgeNoSuchBucket) as e:
+  except (cloudnbd.cloud.BridgeAccessDenied,
+          cloudnbd.cloud.BridgeNoSuchBucket) as e:
     fatal(e.args[0])
 
-  pass_key = cnbdcore.auth.get_pass_key(args.passphrase)
-  crypt_key = cnbdcore.auth.gen_crypt_key()
-  blocktree = cnbdcore.blocktree.BlockTree(
+  pass_key = cloudnbd.auth.get_pass_key(args.passphrase)
+  crypt_key = cloudnbd.auth.gen_crypt_key()
+  blocktree = cloudnbd.blocktree.BlockTree(
     pass_key=pass_key,
     crypt_key=crypt_key,
     cloud=cloud,
@@ -57,14 +57,14 @@ def main(args):
     if config:
       fatal("volume '%s' in bucket '%s' already exists"
             % (args.volume, args.bucket))
-  except cnbdcore.blocktree.BTInvalidKey:
+  except cloudnbd.blocktree.BTInvalidKey:
     fatal("volume '%s' in bucket '%s' already exists"
           % (args.volume, args.bucket))
 
   # set up the config
 
-  config = cnbdcore.serialize({
-    'bs': cnbdcore._default_bs,
+  config = cloudnbd.serialize({
+    'bs': cloudnbd._default_bs,
     'crypt_key': crypt_key.encode('hex'),
     'size': args.size
   })

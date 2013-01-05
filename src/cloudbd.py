@@ -21,13 +21,13 @@ from __future__ import unicode_literals
 from __future__ import division
 import sys
 import argparse
-import cnbdcore
+import cloudnbd
 
 def main():
 
   if any(map(lambda a: unicode(a) in ['-v', '--version'],
          sys.argv[1:])):
-    print(cnbdcore._print_ver)
+    print(cloudnbd._print_ver)
     exit(0)
 
   parser = argparse.ArgumentParser(
@@ -71,9 +71,9 @@ def main():
     '-t', '--threads',
     type=int,
     metavar='<count>',
-    default=cnbdcore._default_delete_thread_count,
+    default=cloudnbd._default_delete_thread_count,
     help="number of delete threads (default: %d)" \
-          % cnbdcore._default_delete_thread_count
+          % cloudnbd._default_delete_thread_count
   )
 
   # info arguments
@@ -116,26 +116,26 @@ def main():
     '-t', '--threads',
     type=int,
     metavar='<count>',
-    default=cnbdcore._default_write_thread_count,
+    default=cloudnbd._default_write_thread_count,
     help="number of write threads (default: %d)" \
-          % cnbdcore._default_write_thread_count
+          % cloudnbd._default_write_thread_count
   )
   parser_a.add_argument(
     '-r', '--read-ahead',
     type=int,
     metavar='<count>',
-    default=cnbdcore._default_read_ahead_count,
+    default=cloudnbd._default_read_ahead_count,
     help="number of blocks to read ahead (default: %d)" \
-          % cnbdcore._default_read_ahead_count
+          % cloudnbd._default_read_ahead_count
   )
   parser_a.add_argument(
     '-e', '--max-cache',
     type=_storage_size,
-    default=cnbdcore._default_total_cache_size,
+    default=cloudnbd._default_total_cache_size,
     metavar="<size>",
     help="maximum amount of in-memory cache to use -"
          " e.g. 100M which is 100 megabytes (default: %d)" \
-          % cnbdcore._default_total_cache_size
+          % cloudnbd._default_total_cache_size
   )
   parser_a.add_argument(
     '--foreground',
@@ -168,9 +168,9 @@ def main():
 
   args = parser.parse_args()
 
-  exec ('import cnbdcore.cmd.%scmd' % args.command) \
+  exec ('import cloudnbd.cmd.%scmd' % args.command) \
     in locals(), globals()
-  exec ('cnbdcore.cmd.%scmd.main(args)' % args.command) \
+  exec ('cloudnbd.cmd.%scmd.main(args)' % args.command) \
     in locals(),globals()
 
 def _storage_size(value):
@@ -224,7 +224,7 @@ def _add_blocksize_args(parser):
     metavar="<size>",
     type=_storage_size,
     help="block size of blocks as stored on the cloud - e.g. 100T"
-         " which is 100 terabytes (default: %d)" % cnbdcore._default_bs
+         " which is 100 terabytes (default: %d)" % cloudnbd._default_bs
   )
 
 def _add_server_args(parser):
@@ -232,7 +232,7 @@ def _add_server_args(parser):
   parser.add_argument(
     '-i', '--bind-address',
     metavar="<ip>",
-    default=cnbdcore._default_bind,
+    default=cloudnbd._default_bind,
     type=unicode,
     help="the IP address the NBD server will be bound to"
          " (default: all interfaces)"
@@ -240,10 +240,10 @@ def _add_server_args(parser):
   parser.add_argument(
     '-p', '--port',
     metavar="<port>",
-    default=cnbdcore._default_port,
+    default=cloudnbd._default_port,
     type=int,
     help="the port the NBD server will listen on"
-         " (default: %d)" % cnbdcore._default_port
+         " (default: %d)" % cloudnbd._default_port
   )
 
 def _add_auth_args(parser):
@@ -272,7 +272,7 @@ def _add_common_args(parser):
 def _add_backend_args(parser):
   parser.add_argument(
     'backend',
-    choices=cnbdcore.cloud.backends,
+    choices=cloudnbd.cloud.backends,
     type=unicode,
     help="storage backend to use"
   )

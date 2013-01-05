@@ -20,12 +20,12 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cnbdcore
+import cloudnbd
 import time
 import threading
 import urllib2
 import hashlib
-from cnbdcore.cloud import *
+from cloudnbd.cloud import *
 
 # set the boto config that forces certificate validation for HTTPS
 # connections

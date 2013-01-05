@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# listcmd.py - List the currently open volumes
+# auth.py - Crypto/Authentication related facilities
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,26 +20,20 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cnbdcore
-import os
-import sys
-import glob
-from cnbdcore.cmd import fatal, warning, info, get_all_creds
+import cloudnbd
 
-def main(args):
+def get_pass_key(passphrase):
+  """Create a one to one cryptographic key for the given plain text
+  password.
+  """
+  from hashlib import sha256
+  return sha256(cloudnbd._salt + passphrase.encode('utf8')).digest()
 
-  vol_ids = cnbdcore.get_open_volumes_list()
-  lst = []
-  for vid in vol_ids:
-    if cnbdcore.acquire_pid_lock(*vid):
-      cnbdcore.release_pid_lock(*vid)
-    else:
-      lst.append(vid)
-  if lst:
-    lst.sort(cmp=lambda a, b: cmp(''.join(a), ''.join(b)))
-    lst = [('[backend]', '[bucket]', '[volume]')] + lst
-    lst_len = map(lambda a: map(lambda b: len(b), a), lst)
-    max_len = map(lambda a: max(*a), map(lambda *r: list(r), *lst_len))
-    fmt = ' '.join(map(lambda a: '%%-%ds' % a, max_len))
-    for i in lst:
-      print(fmt % i)
+def gen_crypt_key():
+  """Generate a new cryptographic key from random source.
+  """
+  import Crypto.Random
+  gen = Crypto.Random.new()
+  key = gen.read(32) # FIXME magic number
+  gen.close()
+  return key

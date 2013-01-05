@@ -23,7 +23,7 @@ _ver_tuple = (_ver_major, _ver_minor, _ver_patch, _ver_sub)
 
 __version__ = '%d.%d.%d%s' % _ver_tuple
 
-_prog_name = 'cloudnbd'
+_prog_name = 'cloudbd'
 _print_ver = '%s %s' % (_prog_name, __version__)
 
 _default_bs = 2 ** 16
@@ -314,9 +314,9 @@ class Cache(dict):
         'queue_size': len(self._queue)
       }
 
-from cnbdcore import cmd
-from cnbdcore import auth
-from cnbdcore import cloud
-from cnbdcore import blocktree
-from cnbdcore import nbd
-from cnbdcore import daemon
+from cloudnbd import cmd
+from cloudnbd import auth
+from cloudnbd import cloud
+from cloudnbd import blocktree
+from cloudnbd import nbd
+from cloudnbd import daemon

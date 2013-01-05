@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# statcmd.py - Print the statistics for a running server
+# closecmd.py - Close a currently open volume
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,18 +20,22 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cnbdcore
+import cloudnbd
 import os
-import sys
-from cnbdcore.cmd import fatal, warning, info, get_all_creds
+import signal
+from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
 def main(args):
 
-  path = cnbdcore.get_stat_path(args.backend, args.bucket, args.volume)
-  try:
-    content = open(path, 'r').read()
-  except:
-    fatal('the requested volume does not seem to be open - use'
-          ' \'%s list\' to get list of currently open volumes'
-          % cnbdcore._prog_name)
-  sys.stdout.write(content)
+  vid = (args.backend, args.bucket, args.volume)
+  if cloudnbd.acquire_pid_lock(*vid):
+    cloudnbd.release_pid_lock(*vid)
+    cloudnbd.destroy_stat_node(*vid)
+    fatal('the given volume is not open - use \'%s list\' to see'
+          ' list of currently open volumes' % cloudnbd._prog_name)
+  else:
+    open(cloudnbd.get_pid_path(*vid), 'r')
+    return
+    pid = int(open(cloudnbd.get_pid_path(*vid), 'r').read())
+    os.kill(pid, signal.SIGINT)
+    print('%s %s %s -> closing' % vid)

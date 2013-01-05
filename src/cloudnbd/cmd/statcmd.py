@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# auth.py - Crypto/Authentication related facilities
+# statcmd.py - Print the statistics for a running server
 # Copyright (C) 2011  Mansour <mansour@oxplot.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,20 +20,18 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
-import cnbdcore
+import cloudnbd
+import os
+import sys
+from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
-def get_pass_key(passphrase):
-  """Create a one to one cryptographic key for the given plain text
-  password.
-  """
-  from hashlib import sha256
-  return sha256(cnbdcore._salt + passphrase.encode('utf8')).digest()
+def main(args):
 
-def gen_crypt_key():
-  """Generate a new cryptographic key from random source.
-  """
-  import Crypto.Random
-  gen = Crypto.Random.new()
-  key = gen.read(32) # FIXME magic number
-  gen.close()
-  return key
+  path = cloudnbd.get_stat_path(args.backend, args.bucket, args.volume)
+  try:
+    content = open(path, 'r').read()
+  except:
+    fatal('the requested volume does not seem to be open - use'
+          ' \'%s list\' to get list of currently open volumes'
+          % cloudnbd._prog_name)
+  sys.stdout.write(content)
