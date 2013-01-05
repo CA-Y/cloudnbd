@@ -83,10 +83,12 @@ class NBD(object):
 
   def _run(self):
     self._lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self._lsock.settimeout(None)
     self._lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self._lsock.bind((self.host, self.port))
     self._lsock.listen(1)
     sock, addr = self._lsock.accept()
+    sock.settimeout(None)
     self._lsock.close()
     flags = NBD.FLAG_HAS_FLAGS | NBD.FLAG_SEND_FLUSH \
           | NBD.FLAG_SEND_TRIM
