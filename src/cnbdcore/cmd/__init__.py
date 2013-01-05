@@ -46,29 +46,15 @@ def _get_all_creds(args):
   if args.secret_key is None:
     args.secret_key = getpass.getpass('secret key: ')
   if args.passphrase is None:
-    if args.command == 'init':
-      args.passphrase = _get_secret_stubbornly(
-        prompt='new passphrase',
-        error='PASSWORDS DO NOT MATCH - TRY AGAIN'
-      )
-    else:
-      args.passphrase = getpass.getpass('passphrase: ')
+    args.passphrase = getpass.getpass('passphrase: ')
   if hasattr(args, 'new_passphrase') and args.new_passphrase is None:
-    args.new_passphrase = _get_secret_stubbornly(
-      prompt='new passphrase',
-      error='PASSWORDS DO NOT MATCH - TRY AGAIN'
-    )
-
-def _get_secret_stubbornly(prompt, error):
-  same = False
-  val = None
-  while not same:
-    val = getpass.getpass('%s: ' % prompt)
-    confirm = getpass.getpass('confirm: ')
-    same = val == confirm
-    if not same:
-      print(error)
-  return val
+    same = False
+    while not same:
+      args.new_passphrase = getpass.getpass('new passphrase: ')
+      confirm = getpass.getpass('confirm: ')
+      same = args.new_passphrase == confirm
+      if not same:
+        print('PASSWORDS DO NOT MATCH - TRY AGAIN')
 
 def load_cloud_config(blocktree):
   try:
