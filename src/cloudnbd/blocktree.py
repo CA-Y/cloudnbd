@@ -56,8 +56,8 @@ def _writer_factory(blocktree):
             blocktree._stats['sent_count'] += 1
             blocktree._stats['data_sent'] += plain_data_len
             blocktree._stats['wire_sent'] += len(data)
-        blocktree._cache.unpin(path)
-        del data
+          blocktree._cache.unpin(path)
+          del data
     except cloudnbd.QueueEmptyError:
       pass
   return writer
@@ -74,7 +74,7 @@ def _reader_factory(blocktree):
           value = _indep_get(blocktree, cloud, k)
         except BTChecksumError:
           continue # XXX since we're using reader only for read ahead
-                   #     it's ok to skip over checksum issues
+                   #     it's ok to ignore checksum issues
         blocktree._cache.set_super_item(k, value)
         blocktree._read_queue.remove(k)
     except cloudnbd.QueueEmptyError:
