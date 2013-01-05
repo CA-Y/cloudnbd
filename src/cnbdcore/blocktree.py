@@ -175,7 +175,6 @@ class BlockTree(object):
       raise BTDecryptError("decryption of '%s' failed due to"
                            " possible corruption" % path)
     hasher = hashlib.md5(cnbdcore._salt + path.encode('utf8'))
-    key = self.pass_key if path == 'config' else self.crypt_key
     iv = hasher.digest()
     decryptor = AES.new(key, AES.MODE_CBC, iv)
     data = decryptor.decrypt(data)
@@ -238,7 +237,7 @@ class BlockTree(object):
 
     header_spec = b'!%dsBQ' % BlockTree._cs_len
     header = struct.pack(
-      header_spec, checksum, store_compressed, data_len
+      packet_spec, checksum, store_compressed, data_len
     )
 
     # calculate the pad length
@@ -254,7 +253,7 @@ class BlockTree(object):
     iv = hasher.digest()
     encryptor = AES.new(key, AES.MODE_CBC, iv)
     return encryptor.encrypt(
-      header + data + (b'\0' * pad_len) + cnbdcore._crypt_magic
+      header + data + ('\0' * pad_len) + cnbdcore._crypt_magic
     )
 
   def get(self, path):

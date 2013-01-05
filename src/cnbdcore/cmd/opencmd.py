@@ -156,9 +156,9 @@ class OpenCMD(object):
     self.crypt_key = self.config['crypt_key'].decode('hex')
     self.blocktree.crypt_key = self.crypt_key
     cname = filter(lambda a: a.startswith('compress-'),
-                   self.config['requires'])
+                   config['requires'])
     cname = cname[0][len('compress-'):] if cname else 'plain'
-    self.blocktree.compressor = compress.compressors[cname]()
+    self.blocktree.compressor = compress.compressor[cname]()
 
     # set cache sizes
 

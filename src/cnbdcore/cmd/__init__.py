@@ -62,8 +62,9 @@ def load_cloud_config(blocktree):
     if config is None:
       fatal("volume with name '%s' does not exist"
             % (blocktree.cloud.volume))
-  except cnbdcore.blocktree.BTDecryptError as e:
-    fatal(e.args[0])
+  except cnbdcore.blocktree.BTInvalidKey:
+    fatal("decryption of config failed, most likely wrong"
+          " passphrase supplied or old version of software")
   return cnbdcore.deserialize(config)
 
 def ensure_req_capabilities(config):
