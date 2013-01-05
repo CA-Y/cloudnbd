@@ -34,6 +34,8 @@ def main(args):
     fatal('the given volume is not open - use \'%s list\' to see'
           ' list of currently open volumes' % cnbdcore._prog_name)
   else:
+    open(cnbdcore.get_pid_path(*vid), 'r')
+    return
     pid = int(open(cnbdcore.get_pid_path(*vid), 'r').read())
     os.kill(pid, signal.SIGINT)
-    print('%s %s -> closing' % vid)
+    print('%s %s %s -> closing' % vid)

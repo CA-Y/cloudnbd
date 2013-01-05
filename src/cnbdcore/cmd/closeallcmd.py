@@ -35,4 +35,4 @@ def main(args):
     else:
       pid = int(open(cnbdcore.get_pid_path(*vid), 'r').read())
       os.kill(pid, signal.SIGINT)
-      print('%s %s -> closing' % vid)
+      print('%s %s %s -> closing' % vid)
