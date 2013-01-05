@@ -118,15 +118,14 @@ class BlockTree(object):
     self._writers_active = True
 
   def start_readers(self):
-    if self.read_ahead > 0:
-      self._read_queue = cloudnbd.SyncQueue()
-      self._readers = []
-      for i in xrange(self.read_ahead):
-        reader = threading.Thread(target=_reader_factory(self))
-        reader.daemon = True
-        self._readers.append(reader)
-        reader.start()
-      self._readers_active = True
+    self._read_queue = cloudnbd.SyncQueue()
+    self._readers = []
+    for i in xrange(self.read_ahead):
+      reader = threading.Thread(target=_reader_factory(self))
+      reader.daemon = True
+      self._readers.append(reader)
+      reader.start()
+    self._readers_active = True
 
   def get_stats(self):
     with self._stats_lock:
