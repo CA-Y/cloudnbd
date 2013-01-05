@@ -68,9 +68,7 @@ class DeleteCMD(object):
                 % (self.blocktree.cloud.volume))
     except cnbdcore.blocktree.BTDecryptError as e:
       if not self.args.yes:
-        fatal(e.args[0] + " - if you specify --yes option, you"
-              " will not be asked for passphrase and the volume"
-              " will be deleted")
+        fatal(e.args[0])
     if self.config is not None:
       self.config = cnbdcore.deserialize(self.config)
 
