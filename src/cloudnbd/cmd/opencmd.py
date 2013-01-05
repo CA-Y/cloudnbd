@@ -27,7 +27,6 @@ import threading
 import time
 import signal
 import sys
-import errno
 from cloudnbd import nbd
 from cloudnbd.cmd import fatal, warning, info, get_all_creds
 
@@ -49,9 +48,7 @@ class OpenCMD(object):
       port=args.port,
       readcb=self.nbd_readcb,
       writecb=self.nbd_writecb,
-      closecb=self.nbd_closecb,
-      flushcb=self.nbd_flushcb,
-      trimcb=self.nbd_trimcb
+      closecb=self.nbd_closecb
     )
     self._interrupted = False
 
@@ -63,12 +60,6 @@ class OpenCMD(object):
     self.blocktree.set('blocks/%d' % block, data)
 
   def nbd_readcb(self, off, length):
-    try:
-      return (0, self._nbd_readcb_helper(off, length))
-    except cloudnbd.blocktree.BTChecksumError:
-      return (errno.EIO, '') # XXX a better error code out there?
-
-  def _nbd_readcb_helper(self, off, length):
     bs = self.config['bs']
     block = off // bs
     start = off % bs
@@ -80,12 +71,6 @@ class OpenCMD(object):
       end = (min(off + length, (block + 2) * bs) - 1) % bs + 1
       block += 1
     return b''.join(data)
-
-  def nbd_trimcb(self, off, length):
-    return self.nbd_writecb(off, '\0' * length)
-
-  def nbd_flushcb(self, off, length):
-    return (0, '') # TODO NOT IMPLEMENTED YET
 
   def nbd_writecb(self, off, data):
     length = len(data)
@@ -99,14 +84,13 @@ class OpenCMD(object):
         bd = self.get_block(block)
         bd = bd[:start] + data[datap:end - start + datap] \
           + bd[end:]
-        self.set_block(block, None if bd == self.empty_block else bd)
+        self.set_block(block, bd)
       else:
         self.set_block(block, data[datap:end - start + datap])
       datap += end - start
       start = 0
       end = (min(off + length, (block + 2) * bs) - 1) % bs + 1
       block += 1
-    return (0, '') # XXX should add some error handling here
 
   def nbd_closecb(self):
     pass
@@ -227,10 +211,8 @@ class OpenCMD(object):
         rstats = self.blocktree.get_stats()
         nbdstats = self.nbd.get_stats()
         stats = {}
-        stats['nbd-reads'] = nbdstats[cloudnbd.nbd.NBD.CMD_READ]
-        stats['nbd-writes'] = nbdstats[cloudnbd.nbd.NBD.CMD_WRITE]
-        stats['nbd-flushes'] = nbdstats[cloudnbd.nbd.NBD.CMD_FLUSH]
-        stats['nbd-trims'] = nbdstats[cloudnbd.nbd.NBD.CMD_TRIM]
+        stats['nbd-reads'] = nbdstats['reads']
+        stats['nbd-writes'] = nbdstats['writes']
         stats['cache-used'] = cloudnbd.size_to_hum(
           rstats['cache_size'] * self.config['bs']
         )
@@ -238,7 +220,6 @@ class OpenCMD(object):
           rstats['queue_size'] * self.config['bs']
         )
         stats['cache-limit'] = cloudnbd.size_to_hum(self.args.max_cache)
-        stats['deleted-reqs'] = str(rstats['deleted_count'])
         stats['sent-reqs'] = str(rstats['sent_count'])
         stats['recv-reqs'] = str(rstats['recv_count'])
         stats['sent-data'] = cloudnbd.size_to_hum(rstats['data_sent'])
