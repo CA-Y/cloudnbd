@@ -1,5 +1,5 @@
 %define name    cloudnbd
-%define version 0.21
+%define version 0.2
 %define release 1
 
 Name:           %{name}
@@ -45,11 +45,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc README LICENSE ChangeLog AUTHORS TODO
 
 %changelog
-* Sun Nov 4 2011 Mansour <mansour@oxplot.com> - 0.21-1
-- Added timeout for send/receive for all socket connection
-- Amended docs about NTP servers
-- NBD - stop listening after client connects
-* Sun Oct 30 2011 Mansour <mansour@oxplot.com> - 0.2-1
+* Sun Oct 30 2010 Mansour <mansour@oxplot.com> - 0.2-1
 - Added man page
-* Sun Sep 18 2011 Mansour <mansour@oxplot.com> - 0.1-1
+* Sun Sep 18 2010 Mansour <mansour@oxplot.com> - 0.1-1
 - Initial release
