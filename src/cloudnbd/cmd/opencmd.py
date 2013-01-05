@@ -85,10 +85,7 @@ class OpenCMD(object):
     return self.nbd_writecb(off, '\0' * length)
 
   def nbd_flushcb(self, off, length):
-    saved_status = self._status
-    self._status += ' (flushing)'
     self.blocktree.flush()
-    self._status = saved_status
     return (0, '')
 
   def nbd_writecb(self, off, data):

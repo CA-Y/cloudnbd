@@ -83,13 +83,12 @@ def _reader_factory(blocktree):
 
 def _indep_get(blocktree, cloud, k):
   obj = cloud.get(k)
-  with blocktree._stats_lock:
-    blocktree._stats['recv_count'] += 1
   if obj:
     data = obj.get_content()
     wire_data_len = len(data)
     data = blocktree._decrypt_data(k, data)
     with blocktree._stats_lock:
+      blocktree._stats['recv_count'] += 1
       blocktree._stats['data_recv'] += len(data)
       blocktree._stats['wire_recv'] += wire_data_len
     cloud_checksum = obj.metadata['checksum']
